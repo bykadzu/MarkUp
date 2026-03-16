@@ -71,13 +71,37 @@
     let pageCanvas;
     try {
       // Capture the underlying page
-      // Pre-process: convert unsupported oklab/oklch colors to rgb fallbacks
-      const stylesheets = document.querySelectorAll('style');
+      // Pre-process: strip oklab/oklch from ALL stylesheets + inline styles
+      // html2canvas can't parse modern CSS color functions
+      const allStyles = document.querySelectorAll('style, link[rel="stylesheet"]');
       const originalStyles = [];
-      stylesheets.forEach(function(s) {
-        originalStyles.push(s.textContent);
-        s.textContent = s.textContent.replace(/oklab\([^)]+\)/g, 'rgb(128,128,128)').replace(/oklch\([^)]+\)/g, 'rgb(128,128,128)');
+      const oklabRegex = /oklab\([^)]*\)/g;
+      const oklchRegex = /oklch\([^)]*\)/g;
+      const fallback = 'rgb(128,128,128)';
+
+      // Fix <style> tags
+      document.querySelectorAll('style').forEach(function(s) {
+        originalStyles.push({ el: s, text: s.textContent });
+        s.textContent = s.textContent.replace(oklabRegex, fallback).replace(oklchRegex, fallback);
       });
+
+      // Fix inline styles on all elements
+      const inlineFixed = [];
+      document.querySelectorAll('[style]').forEach(function(el) {
+        var orig = el.getAttribute('style');
+        if (orig && (orig.includes('oklab') || orig.includes('oklch'))) {
+          inlineFixed.push({ el: el, style: orig });
+          el.setAttribute('style', orig.replace(oklabRegex, fallback).replace(oklchRegex, fallback));
+        }
+      });
+
+      // Fix CSS custom properties on :root / html
+      var rootStyle = document.documentElement.getAttribute('style') || '';
+      var hadRootFix = false;
+      if (rootStyle.includes('oklab') || rootStyle.includes('oklch')) {
+        hadRootFix = true;
+        document.documentElement.setAttribute('style', rootStyle.replace(oklabRegex, fallback).replace(oklchRegex, fallback));
+      }
 
       pageCanvas = await html2canvas(document.body, {
         useCORS: true,
@@ -90,12 +114,24 @@
         y: window.scrollY,
         scale: 1,
         logging: false,
+        onclone: function(clonedDoc) {
+          // Also fix in the cloned document html2canvas uses
+          clonedDoc.querySelectorAll('style').forEach(function(s) {
+            s.textContent = s.textContent.replace(oklabRegex, fallback).replace(oklchRegex, fallback);
+          });
+          clonedDoc.querySelectorAll('[style]').forEach(function(el) {
+            var st = el.getAttribute('style');
+            if (st && (st.includes('oklab') || st.includes('oklch'))) {
+              el.setAttribute('style', st.replace(oklabRegex, fallback).replace(oklchRegex, fallback));
+            }
+          });
+        }
       });
 
-      // Restore original styles
-      stylesheets.forEach(function(s, i) {
-        if (originalStyles[i]) s.textContent = originalStyles[i];
-      });
+      // Restore everything
+      originalStyles.forEach(function(item) { item.el.textContent = item.text; });
+      inlineFixed.forEach(function(item) { item.el.setAttribute('style', item.style); });
+      if (hadRootFix) document.documentElement.setAttribute('style', rootStyle);
     } finally {
       overlay.style.display = '';
       overlay.style.pointerEvents = '';
