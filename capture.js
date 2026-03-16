@@ -71,6 +71,14 @@
     let pageCanvas;
     try {
       // Capture the underlying page
+      // Pre-process: convert unsupported oklab/oklch colors to rgb fallbacks
+      const stylesheets = document.querySelectorAll('style');
+      const originalStyles = [];
+      stylesheets.forEach(function(s) {
+        originalStyles.push(s.textContent);
+        s.textContent = s.textContent.replace(/oklab\([^)]+\)/g, 'rgb(128,128,128)').replace(/oklch\([^)]+\)/g, 'rgb(128,128,128)');
+      });
+
       pageCanvas = await html2canvas(document.body, {
         useCORS: true,
         allowTaint: true,
@@ -82,6 +90,11 @@
         y: window.scrollY,
         scale: 1,
         logging: false,
+      });
+
+      // Restore original styles
+      stylesheets.forEach(function(s, i) {
+        if (originalStyles[i]) s.textContent = originalStyles[i];
       });
     } finally {
       overlay.style.display = '';
