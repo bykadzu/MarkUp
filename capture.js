@@ -228,9 +228,13 @@
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        // Show path in toast — Chrome saves to Downloads folder
+        // Show path in toast and copy to clipboard for Claude Code
         const savePath = `C:\\Users\\gentl\\Downloads\\${filename}`;
-        showToast(`Gespeichert: ${savePath}`, 6000);
+        navigator.clipboard.writeText(savePath).then(function() {
+          showToast(`Gespeichert + Pfad kopiert: ${savePath}`, 6000);
+        }).catch(function() {
+          showToast(`Gespeichert: ${savePath}`, 6000);
+        });
       }, 'image/png');
     } catch (err) {
       showToast('Fehler: ' + err.message, 4000);
