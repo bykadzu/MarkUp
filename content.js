@@ -521,9 +521,9 @@
     fmtBar.innerHTML = `
       <button class="markup-fmt-btn" data-fmt="bold" title="Fett (Ctrl+B)"><strong>B</strong></button>
       <button class="markup-fmt-btn" data-fmt="italic" title="Kursiv (Ctrl+I)"><em>I</em></button>
-      <button class="markup-fmt-btn markup-fmt-size active" data-fmt="S" title="Klein">S</button>
+      <button class="markup-fmt-btn markup-fmt-size" data-fmt="S" title="Klein">S</button>
       <button class="markup-fmt-btn markup-fmt-size active" data-fmt="M" title="Mittel">M</button>
-      <button class="markup-fmt-btn markup-fmt-size active" data-fmt="L" title="Gross">L</button>
+      <button class="markup-fmt-btn markup-fmt-size" data-fmt="L" title="Gross">L</button>
     `;
 
     // Auto-expanding textarea
@@ -532,6 +532,9 @@
     input.placeholder = 'Notiz eingeben...';
     input.style.borderColor = STATE.color;
     input.rows = 1;
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.setAttribute('data-form-type', 'other');
 
     // Auto-resize on input
     function autoResize() {
