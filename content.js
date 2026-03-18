@@ -237,7 +237,7 @@
   // --- POINTER DOWN ---
   function onPointerDown(e) {
     if (isOnToolbar(e)) return;
-    if (e.target.closest('.markup-text-input')) return;
+    if (e.target.closest('.markup-text-note, .markup-fmt-bar, .markup-text-input, .markup-text-label, .markup-text-input-wrap')) return;
 
     const pos = getPos(e);
 
