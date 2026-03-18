@@ -320,6 +320,31 @@
   font-size: 11px;
 }
 
+.markup-fmt-divider {
+  width: 1px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 0 2px;
+}
+
+.markup-fmt-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+.markup-fmt-confirm {
+  color: #4ade80 !important;
+  font-size: 14px;
+}
+
+.markup-fmt-confirm:hover {
+  background: rgba(74, 222, 128, 0.15) !important;
+  color: #86efac !important;
+}
+
 .markup-text-input {
   background: rgba(18, 18, 28, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.15);

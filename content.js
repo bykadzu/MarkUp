@@ -512,7 +512,7 @@
     badge.style.background = STATE.color;
 
     // Formatting state for this note
-    const fmt = { bold: false, italic: false, size: 'M' };
+    const fmt = { bold: false, italic: false, underline: false, size: 'M' };
     const SIZES = { S: 11, M: 13, L: 17 };
 
     // Formatting toolbar
@@ -521,9 +521,14 @@
     fmtBar.innerHTML = `
       <button class="markup-fmt-btn" data-fmt="bold" title="Fett (Ctrl+B)"><strong>B</strong></button>
       <button class="markup-fmt-btn" data-fmt="italic" title="Kursiv (Ctrl+I)"><em>I</em></button>
+      <button class="markup-fmt-btn" data-fmt="underline" title="Unterstrichen (Ctrl+U)"><span style="text-decoration:underline">U</span></button>
+      <span class="markup-fmt-divider"></span>
       <button class="markup-fmt-btn markup-fmt-size" data-fmt="S" title="Klein">S</button>
       <button class="markup-fmt-btn markup-fmt-size active" data-fmt="M" title="Mittel">M</button>
       <button class="markup-fmt-btn markup-fmt-size" data-fmt="L" title="Gross">L</button>
+      <span class="markup-fmt-divider"></span>
+      <span class="markup-fmt-color" style="background:${STATE.color}" title="Textfarbe"></span>
+      <button class="markup-fmt-btn markup-fmt-confirm" data-fmt="confirm" title="Fertig (Ctrl+Enter)">&#10003;</button>
     `;
 
     // Auto-expanding textarea
@@ -547,10 +552,13 @@
     function applyFormat() {
       input.style.fontWeight = fmt.bold ? '700' : '400';
       input.style.fontStyle = fmt.italic ? 'italic' : 'normal';
+      input.style.textDecoration = fmt.underline ? 'underline' : 'none';
       input.style.fontSize = SIZES[fmt.size] + 'px';
+      input.style.color = STATE.color === '#DC2626' ? '#fff' : STATE.color;
       // Update active states on format bar
       fmtBar.querySelector('[data-fmt="bold"]').classList.toggle('active', fmt.bold);
       fmtBar.querySelector('[data-fmt="italic"]').classList.toggle('active', fmt.italic);
+      fmtBar.querySelector('[data-fmt="underline"]').classList.toggle('active', fmt.underline);
       fmtBar.querySelectorAll('.markup-fmt-size').forEach(b => {
         b.classList.toggle('active', b.dataset.fmt === fmt.size);
       });
@@ -565,6 +573,8 @@
       const action = btn.dataset.fmt;
       if (action === 'bold') fmt.bold = !fmt.bold;
       else if (action === 'italic') fmt.italic = !fmt.italic;
+      else if (action === 'underline') fmt.underline = !fmt.underline;
+      else if (action === 'confirm') { finalize(); return; }
       else if (action === 'S' || action === 'M' || action === 'L') fmt.size = action;
       applyFormat();
       input.focus();
@@ -595,19 +605,52 @@
         wrapper.remove();
         return;
       }
+      const textColor = STATE.color === '#DC2626' ? '#f0f0f0' : STATE.color;
       const label = document.createElement('div');
       label.className = 'markup-text-label';
       label.style.fontWeight = fmt.bold ? '700' : '400';
       label.style.fontStyle = fmt.italic ? 'italic' : 'normal';
+      label.style.textDecoration = fmt.underline ? 'underline' : 'none';
       label.style.fontSize = SIZES[fmt.size] + 'px';
+      label.style.color = textColor;
       label.textContent = input.value;
       inputWrap.remove();
       wrapper.appendChild(label);
 
+      // Double-click to re-edit
+      label.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        label.remove();
+        finalized = false;
+        inputWrap.querySelector('textarea') || inputWrap.appendChild(input);
+        wrapper.appendChild(inputWrap);
+        input.value = label.textContent;
+        applyFormat();
+        setTimeout(() => input.focus(), 50);
+      });
+
+      // Drag to reposition
+      let dragStart = null;
+      wrapper.style.cursor = 'grab';
+      wrapper.addEventListener('mousedown', (e) => {
+        if (e.target.tagName === 'TEXTAREA' || e.target.closest('.markup-fmt-bar')) return;
+        dragStart = { x: e.clientX - wrapper.offsetLeft, y: e.clientY - wrapper.offsetTop };
+        wrapper.style.cursor = 'grabbing';
+        e.preventDefault();
+      });
+      const onDragMove = (e) => {
+        if (!dragStart) return;
+        wrapper.style.left = (e.clientX - dragStart.x) + 'px';
+        wrapper.style.top = (e.clientY - dragStart.y) + 'px';
+      };
+      const onDragEnd = () => { dragStart = null; wrapper.style.cursor = 'grab'; };
+      document.addEventListener('mousemove', onDragMove);
+      document.addEventListener('mouseup', onDragEnd);
+
       STATE.annotations.push({
         type: 'text',
         element: wrapper,
-        data: { x: pos.x, y: pos.y, text: input.value, num: noteNum, color: STATE.color, bold: fmt.bold, italic: fmt.italic, size: fmt.size },
+        data: { x: pos.x, y: pos.y, text: input.value, num: noteNum, color: STATE.color, bold: fmt.bold, italic: fmt.italic, underline: fmt.underline, size: fmt.size },
       });
       STATE.undoStack = [];
     };
@@ -619,6 +662,7 @@
       // Formatting shortcuts
       if ((e.ctrlKey || e.metaKey) && e.key === 'b') { e.preventDefault(); fmt.bold = !fmt.bold; applyFormat(); }
       if ((e.ctrlKey || e.metaKey) && e.key === 'i') { e.preventDefault(); fmt.italic = !fmt.italic; applyFormat(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'u') { e.preventDefault(); fmt.underline = !fmt.underline; applyFormat(); }
     });
     input.addEventListener('blur', () => {
       // Small delay to allow format bar clicks
