@@ -208,43 +208,51 @@
   // ---------------------------------------------------------------------------
 
   async function savePNG() {
-    showToast('Wird erfasst...', 10000);
-    // Yield to let toast render before heavy html2canvas work
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    showToast('Wird erfasst...', 15000);
 
     try {
+      // Small delay so toast renders before html2canvas blocks
+      await new Promise(r => setTimeout(r, 50));
+
       const compositeCanvas = await captureComposite();
       const filename = getFilename();
       const savePath = `C:\\Users\\gentl\\Downloads\\${filename}`;
 
-      // Get blob synchronously-ish so clipboard gesture is still valid
-      const blob = await new Promise(resolve => compositeCanvas.toBlob(resolve, 'image/png'));
-      if (!blob) {
-        showToast('Fehler: Screenshot konnte nicht erstellt werden.', 3000);
-        return;
-      }
+      // Use original callback pattern (proven to work)
+      compositeCanvas.toBlob(function(blob) {
+        if (!blob) {
+          showToast('Fehler: Screenshot konnte nicht erstellt werden.', 3000);
+          return;
+        }
 
-      // Copy IMAGE to clipboard first (while gesture context is still alive)
-      try {
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': blob })
-        ]);
-      } catch (_e) {
-        // Fallback: try copying path as text
-        try { await navigator.clipboard.writeText(savePath); } catch (_e2) { /* silent */ }
-      }
+        // Download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
 
-      // Trigger download
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      showToast(`Gespeichert + kopiert: ${savePath}`, 5000);
+        // Clipboard — best effort, don't await
+        try {
+          navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ]).then(function() {
+            showToast(`Gespeichert + kopiert: ${savePath}`, 5000);
+          }).catch(function() {
+            // Fallback: copy path as text
+            navigator.clipboard.writeText(savePath).then(function() {
+              showToast(`Gespeichert + Pfad kopiert: ${savePath}`, 5000);
+            }).catch(function() {
+              showToast(`Gespeichert: ${savePath}`, 5000);
+            });
+          });
+        } catch (_e) {
+          showToast(`Gespeichert: ${savePath}`, 5000);
+        }
+      }, 'image/png');
     } catch (err) {
       showToast('Fehler: ' + err.message, 4000);
     }
@@ -255,22 +263,28 @@
   // ---------------------------------------------------------------------------
 
   async function copyToClipboard() {
-    showToast('Wird erfasst...', 10000);
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    showToast('Wird erfasst...', 15000);
 
     try {
+      await new Promise(r => setTimeout(r, 50));
+
       const compositeCanvas = await captureComposite();
-      const blob = await new Promise(resolve => compositeCanvas.toBlob(resolve, 'image/png'));
-      if (!blob) {
-        showToast('Fehler beim Kopieren.', 3000);
-        return;
-      }
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': blob })
-      ]);
-      showToast('In Zwischenablage kopiert!', 3000);
+
+      compositeCanvas.toBlob(function(blob) {
+        if (!blob) {
+          showToast('Fehler beim Kopieren.', 3000);
+          return;
+        }
+        navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]).then(function() {
+          showToast('In Zwischenablage kopiert!', 3000);
+        }).catch(function(err) {
+          showToast('Zwischenablage-Fehler: ' + err.message, 4000);
+        });
+      }, 'image/png');
     } catch (err) {
-      showToast('Zwischenablage-Fehler: ' + err.message, 4000);
+      showToast('Fehler: ' + err.message, 4000);
     }
   }
 
