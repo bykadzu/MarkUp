@@ -1,65 +1,73 @@
-# MarkUp by Myfrendo
+# MarkUp
 
-Visuelles Annotations-Tool als Chrome-Extension. Zeichne, schreibe Notizen, setze nummerierte Pins auf jede Website und speichere das Ergebnis als PNG.
+Chrome extension for visual website annotations — draw, write, screenshot. Design feedback made fast.
 
-## Installation
+## What it does
 
-1. Oeffne Chrome und navigiere zu `chrome://extensions/`
-2. Aktiviere oben rechts den **Entwicklermodus** (Developer mode)
-3. Klicke auf **Entpackte Erweiterung laden** (Load unpacked)
-4. Waehle den Ordner `C:\Users\gentl\Documents\MarkUp\`
-5. Die Extension erscheint in der Toolbar — fertig
+Annotate directly on any live webpage. No screenshot-first workflow. Drop numbered notes, draw arrows, highlight sections, then export as PNG with one click. The file path auto-copies to clipboard — paste it straight into Claude Code or any dev tool.
 
-## Verwendung
+## Tools
 
-1. Oeffne eine beliebige Website
-2. Klicke auf das MarkUp-Icon in der Chrome-Toolbar
-3. Klicke **Annotieren** im Popup
-4. Die Toolbar erscheint oben auf der Seite — nutze die Werkzeuge:
+| Tool | What it does | Shortcut |
+|------|-------------|----------|
+| **Pen** | Freehand drawing (adjustable width + color) | — |
+| **Arrow** | Click start + end point | — |
+| **Rectangle** | Drag to draw | — |
+| **Text** | Numbered notes with B/I/U formatting, 3 sizes | Ctrl+B/I/U |
+| **Pin** | Drop numbered markers (1, 2, 3...) | — |
+| **Eraser** | Click any annotation to remove it | — |
+| **Undo** | Step back | Ctrl+Z |
 
-| Werkzeug | Beschreibung |
-|----------|-------------|
-| Stift | Freihand zeichnen (Maus/Touch) |
-| Pfeil | Klicke Start- und Endpunkt |
-| Rechteck | Ziehe ein Rechteck auf |
-| Text | Klicke und tippe eine Notiz (mit Nummer) |
-| Pin | Setze nummerierte Markierungen (1, 2, 3...) |
-| Radierer | Klicke auf eine Annotation zum Loeschen |
-| Rueckgaengig | Letzte Aktion rueckgaengig (auch Ctrl+Z) |
-| Papierkorb | Alles loeschen |
+## Text notes
 
-### Speichern und Exportieren
+- Click anywhere with the Text tool to place a note
+- **Format bar**: Bold, Italic, Underline, Size (S/M/L)
+- **Color**: follows the active toolbar color
+- **Finalize**: click the checkmark or press Ctrl+Enter
+- **Re-edit**: double-click any finalized note
+- **Reposition**: drag finalized notes anywhere
+- **Multiline**: Enter for new lines, Ctrl+Enter to finish
 
-- **Download-Pfeil (gruen):** Speichert PNG-Screenshot mit Annotationen. Zeigt den Dateipfad als Toast-Benachrichtigung.
-- **Kopieren:** Kopiert den annotierten Screenshot in die Zwischenablage.
-- **Notizen-Export:** Exportiert alle Textnotizen und Pins als Markdown-Datei.
+## Export
 
-### Weitere Funktionen
+- **Save (green arrow)**: Downloads PNG + copies image to clipboard
+- **Copy**: Copies annotated screenshot to clipboard
+- **Notes export**: All text notes + pins as markdown file
 
-- **Farbwahl:** Rot, Blau, Gruen, Gelb, Weiss
-- **Linienstaerke:** Einstellbar von 2px bis 8px
-- **Toolbar verschieben:** Am Griff-Icon (links) ziehen
-- **Beenden:** ESC-Taste oder X-Button
+## Colors
 
-## Dateien
+5 presets: Red, Blue, Green, Yellow, White. Active color applies to all tools including text.
+
+## Install
+
+1. Open `chrome://extensions/`
+2. Enable **Developer mode** (top right)
+3. Click **Load unpacked**
+4. Select the MarkUp folder
+5. Pin the extension to your toolbar
+
+Also works in Safari 15.4+ via Web Extension support.
+
+## Files
 
 ```
-MarkUp/
-  manifest.json        Manifest V3 Konfiguration
-  popup.html/css/js     Popup beim Klick auf Extension-Icon
-  content.js            Annotations-Engine (Canvas + SVG + HTML)
-  capture.js            Screenshot-Erfassung und Export
-  styles.css            Overlay- und Toolbar-Styles
-  lib/html2canvas.min.js  Bundled html2canvas Bibliothek
-  icons/                Extension-Icons (16/48/128px)
+manifest.json       Manifest V3 config
+popup.html/css/js   Extension popup
+content.js          Annotation engine (canvas + SVG + HTML)
+capture.js          Screenshot capture + clipboard + export
+styles.css          Toolbar + annotation styles (glass morphism dark)
+lib/html2canvas     Bundled — no CDN, works offline
+icons/              16/48/128px
+COMPARISON.md       MarkUp vs Windows Snipping Tool
 ```
 
-## Technische Details
+## Tech
 
-- **Manifest V3** — keine Background-Page, nutzt chrome.scripting API
-- **html2canvas** lokal gebundled — keine CDN-Abhaengigkeit, funktioniert offline
-- Freehand-Zeichnung auf einem `<canvas>` Element
-- Pfeile und Rechtecke als SVG-Elemente
-- Textnotizen und Pins als HTML-Elemente
-- Alle drei Layer werden beim Screenshot zusammengefuehrt
-- Unterstuetzt Maus und Touch
+- Manifest V3 — chrome.scripting API, Safari compatible
+- 3-layer composite: Canvas (freehand) + SVG (shapes) + HTML (text/pins)
+- html2canvas for page capture, handles oklch/oklab CSS
+- Zero external dependencies at runtime
+
+---
+
+Built by [KADZU](https://github.com/bykadzu) with Claude Code.
