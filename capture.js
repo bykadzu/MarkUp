@@ -235,23 +235,12 @@
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        // Clipboard — best effort, don't await
-        try {
-          navigator.clipboard.write([
-            new ClipboardItem({ 'image/png': blob })
-          ]).then(function() {
-            showToast(`Gespeichert + kopiert: ${savePath}`, 5000);
-          }).catch(function() {
-            // Fallback: copy path as text
-            navigator.clipboard.writeText(savePath).then(function() {
-              showToast(`Gespeichert + Pfad kopiert: ${savePath}`, 5000);
-            }).catch(function() {
-              showToast(`Gespeichert: ${savePath}`, 5000);
-            });
-          });
-        } catch (_e) {
+        // Copy PATH to clipboard (most useful for Claude Code workflow)
+        navigator.clipboard.writeText(savePath).then(function() {
+          showToast(`Gespeichert + Pfad kopiert: ${savePath}`, 5000);
+        }).catch(function() {
           showToast(`Gespeichert: ${savePath}`, 5000);
-        }
+        });
       }, 'image/png');
     } catch (err) {
       showToast('Fehler: ' + err.message, 4000);
