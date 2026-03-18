@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MarkUp by Myfrendo",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Visuelles Annotations-Tool für Websites. Zeichnen, Notizen, Pins — als PNG speichern.",
   "permissions": ["activeTab", "scripting"],
   "action": {
@@ -22,5 +22,10 @@
       "resources": ["lib/html2canvas.min.js", "styles.css"],
       "matches": ["<all_urls>"]
     }
-  ]
+  ],
+  "browser_specific_settings": {
+    "safari": {
+      "strict_min_version": "15.4"
+    }
+  }
 }

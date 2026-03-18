@@ -511,44 +511,118 @@
     badge.textContent = noteNum;
     badge.style.background = STATE.color;
 
-    const input = document.createElement('input');
-    input.type = 'text';
+    // Formatting state for this note
+    const fmt = { bold: false, italic: false, size: 'M' };
+    const SIZES = { S: 11, M: 13, L: 17 };
+
+    // Formatting toolbar
+    const fmtBar = document.createElement('div');
+    fmtBar.className = 'markup-fmt-bar';
+    fmtBar.innerHTML = `
+      <button class="markup-fmt-btn" data-fmt="bold" title="Fett (Ctrl+B)"><strong>B</strong></button>
+      <button class="markup-fmt-btn" data-fmt="italic" title="Kursiv (Ctrl+I)"><em>I</em></button>
+      <button class="markup-fmt-btn markup-fmt-size active" data-fmt="S" title="Klein">S</button>
+      <button class="markup-fmt-btn markup-fmt-size active" data-fmt="M" title="Mittel">M</button>
+      <button class="markup-fmt-btn markup-fmt-size active" data-fmt="L" title="Gross">L</button>
+    `;
+
+    // Auto-expanding textarea
+    const input = document.createElement('textarea');
     input.className = 'markup-text-input';
     input.placeholder = 'Notiz eingeben...';
     input.style.borderColor = STATE.color;
+    input.rows = 1;
+
+    // Auto-resize on input
+    function autoResize() {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 200) + 'px';
+    }
+    input.addEventListener('input', autoResize);
+
+    // Apply formatting visually
+    function applyFormat() {
+      input.style.fontWeight = fmt.bold ? '700' : '400';
+      input.style.fontStyle = fmt.italic ? 'italic' : 'normal';
+      input.style.fontSize = SIZES[fmt.size] + 'px';
+      // Update active states on format bar
+      fmtBar.querySelector('[data-fmt="bold"]').classList.toggle('active', fmt.bold);
+      fmtBar.querySelector('[data-fmt="italic"]').classList.toggle('active', fmt.italic);
+      fmtBar.querySelectorAll('.markup-fmt-size').forEach(b => {
+        b.classList.toggle('active', b.dataset.fmt === fmt.size);
+      });
+      autoResize();
+    }
+
+    // Format bar click handler
+    fmtBar.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-fmt]');
+      if (!btn) return;
+      e.stopPropagation();
+      const action = btn.dataset.fmt;
+      if (action === 'bold') fmt.bold = !fmt.bold;
+      else if (action === 'italic') fmt.italic = !fmt.italic;
+      else if (action === 'S' || action === 'M' || action === 'L') fmt.size = action;
+      applyFormat();
+      input.focus();
+    });
+    fmtBar.addEventListener('mousedown', (e) => e.preventDefault()); // Prevent blur
+
+    const inputWrap = document.createElement('div');
+    inputWrap.className = 'markup-text-input-wrap';
+    inputWrap.appendChild(fmtBar);
+    inputWrap.appendChild(input);
 
     wrapper.appendChild(badge);
-    wrapper.appendChild(input);
+    wrapper.appendChild(inputWrap);
     htmlLayer.appendChild(wrapper);
+
+    // Set initial size styling
+    applyFormat();
 
     // Focus the input
     setTimeout(() => input.focus(), 50);
 
-    // On enter or blur, finalize
+    // On Ctrl+Enter or blur, finalize (Enter inserts newlines)
+    let finalized = false;
     const finalize = () => {
+      if (finalized) return;
+      finalized = true;
       if (!input.value.trim()) {
         wrapper.remove();
         return;
       }
-      const label = document.createElement('span');
+      const label = document.createElement('div');
       label.className = 'markup-text-label';
+      label.style.fontWeight = fmt.bold ? '700' : '400';
+      label.style.fontStyle = fmt.italic ? 'italic' : 'normal';
+      label.style.fontSize = SIZES[fmt.size] + 'px';
       label.textContent = input.value;
-      wrapper.replaceChild(label, input);
+      inputWrap.remove();
+      wrapper.appendChild(label);
 
       STATE.annotations.push({
         type: 'text',
         element: wrapper,
-        data: { x: pos.x, y: pos.y, text: input.value, num: noteNum, color: STATE.color },
+        data: { x: pos.x, y: pos.y, text: input.value, num: noteNum, color: STATE.color, bold: fmt.bold, italic: fmt.italic, size: fmt.size },
       });
       STATE.undoStack = [];
     };
 
     input.addEventListener('keydown', (e) => {
       e.stopPropagation(); // Don't trigger ESC close
-      if (e.key === 'Enter') finalize();
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); finalize(); }
       if (e.key === 'Escape') { wrapper.remove(); }
+      // Formatting shortcuts
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') { e.preventDefault(); fmt.bold = !fmt.bold; applyFormat(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'i') { e.preventDefault(); fmt.italic = !fmt.italic; applyFormat(); }
     });
-    input.addEventListener('blur', finalize);
+    input.addEventListener('blur', () => {
+      // Small delay to allow format bar clicks
+      setTimeout(() => {
+        if (!fmtBar.matches(':hover') && !finalized) finalize();
+      }, 150);
+    });
   }
 
   // ---------------------------------------------------------------------------
