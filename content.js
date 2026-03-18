@@ -48,7 +48,7 @@
   canvas.height = window.innerHeight;
   overlay.appendChild(canvas);
 
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
@@ -602,7 +602,7 @@
       if (finalized) return;
       finalized = true;
       if (!input.value.trim()) {
-        wrapper.remove();
+        if (wrapper.parentNode) wrapper.remove();
         return;
       }
       const textColor = STATE.color === '#DC2626' ? '#f0f0f0' : STATE.color;
@@ -614,7 +614,7 @@
       label.style.fontSize = SIZES[fmt.size] + 'px';
       label.style.color = textColor;
       label.textContent = input.value;
-      inputWrap.remove();
+      if (inputWrap.parentNode) inputWrap.remove();
       wrapper.appendChild(label);
 
       // Double-click to re-edit
@@ -667,8 +667,12 @@
     input.addEventListener('blur', () => {
       // Small delay to allow format bar clicks
       setTimeout(() => {
-        if (!fmtBar.matches(':hover') && !finalized) finalize();
-      }, 150);
+        try {
+          if (!finalized && (!fmtBar.parentNode || !fmtBar.matches(':hover'))) finalize();
+        } catch (_e) {
+          if (!finalized) finalize();
+        }
+      }, 200);
     });
   }
 
