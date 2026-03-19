@@ -12,7 +12,7 @@
   // ---------------------------------------------------------------------------
 
   const STATE = {
-    tool: 'draw',           // draw | arrow | rect | text | pin | eraser
+    tool: 'draw',           // draw | arrow | rect | highlight | text | pin | eraser
     color: '#DC2626',
     lineWidth: 3,
     pinCounter: 1,
@@ -97,6 +97,9 @@
       </button>
       <button class="markup-tb-btn" data-tool="rect" title="Rechteck">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      </button>
+      <button class="markup-tb-btn" data-tool="highlight" title="Textmarker">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/><rect x="2" y="16" width="20" height="5" rx="1" fill="currentColor" opacity="0.3" stroke="none"/></svg>
       </button>
       <button class="markup-tb-btn" data-tool="text" title="Textnotiz">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7V4h16v3"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg>
@@ -247,6 +250,7 @@
         break;
       case 'arrow':
       case 'rect':
+      case 'highlight':
         STATE.isDrawing = true;
         STATE.startX = pos.x;
         STATE.startY = pos.y;
@@ -278,6 +282,9 @@
       case 'rect':
         previewRect(pos);
         break;
+      case 'highlight':
+        previewHighlight(pos);
+        break;
     }
   }
 
@@ -295,6 +302,9 @@
         break;
       case 'rect':
         placeRect(pos);
+        break;
+      case 'highlight':
+        placeHighlight(pos);
         break;
     }
 
@@ -492,6 +502,53 @@
     const g = parseInt(c.substring(2, 4), 16);
     const b = parseInt(c.substring(4, 6), 16);
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tool: Highlighter
+  // ---------------------------------------------------------------------------
+
+  function previewHighlight(pos) {
+    if (previewEl) previewEl.remove();
+    previewEl = createSVGHighlight(STATE.startX, STATE.startY, pos.x, pos.y, STATE.color);
+    previewEl.classList.add('markup-preview');
+    svgLayer.appendChild(previewEl);
+  }
+
+  function placeHighlight(pos) {
+    if (previewEl) previewEl.remove();
+    previewEl = null;
+    const dx = Math.abs(pos.x - STATE.startX);
+    const dy = Math.abs(pos.y - STATE.startY);
+    if (dx < 5 && dy < 5) return;
+
+    const el = createSVGHighlight(STATE.startX, STATE.startY, pos.x, pos.y, STATE.color);
+    el.classList.add('markup-annotation');
+    svgLayer.appendChild(el);
+
+    STATE.annotations.push({
+      type: 'highlight',
+      element: el,
+      data: { x1: STATE.startX, y1: STATE.startY, x2: pos.x, y2: pos.y, color: STATE.color },
+    });
+    STATE.undoStack = [];
+  }
+
+  function createSVGHighlight(x1, y1, x2, y2, color) {
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    const rx = Math.min(x1, x2);
+    const ry = Math.min(y1, y2);
+    const rw = Math.abs(x2 - x1);
+    const rh = Math.abs(y2 - y1);
+    rect.setAttribute('x', rx);
+    rect.setAttribute('y', ry);
+    rect.setAttribute('width', rw);
+    rect.setAttribute('height', rh);
+    rect.setAttribute('rx', '2');
+    rect.setAttribute('stroke', 'none');
+    rect.setAttribute('fill', hexToRgba(color, 0.3));
+    rect.style.mixBlendMode = 'multiply';
+    return rect;
   }
 
   // ---------------------------------------------------------------------------
