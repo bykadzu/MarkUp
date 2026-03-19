@@ -12,10 +12,11 @@
   // ---------------------------------------------------------------------------
 
   const STATE = {
-    tool: 'draw',           // draw | arrow | rect | highlight | text | pin | eraser
+    tool: 'draw',           // draw | arrow | rect | highlight | text | pin | stamp | eraser | crop
     color: '#DC2626',
     lineWidth: 3,
     pinCounter: 1,
+    stampType: 'checkmark',   // checkmark | cross | question | star
     isDrawing: false,
     startX: 0,
     startY: 0,
@@ -114,11 +115,17 @@
       <button class="markup-tb-btn" data-tool="pin" title="Nummerierter Pin">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="7"/><text x="12" y="14" text-anchor="middle" font-size="10" fill="currentColor" stroke="none">1</text></svg>
       </button>
+      <button class="markup-tb-btn" data-tool="stamp" title="Stempel">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 21h14"/><rect x="5" y="17" width="14" height="2"/><path d="M10 17v-3h4v3"/><rect x="9" y="5" width="6" height="9" rx="1"/></svg>
+      </button>
 
       <div class="markup-tb-divider"></div>
 
       <button class="markup-tb-btn" data-tool="eraser" title="Radierer (Annotation loeschen)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+      </button>
+      <button class="markup-tb-btn" data-tool="crop" title="Bereich zuschneiden und speichern">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2v4"/><path d="M6 6h12v12"/><path d="M18 22v-4"/><path d="M2 6h4"/><path d="M22 18h-4"/></svg>
       </button>
 
       <div class="markup-tb-divider"></div>
@@ -183,6 +190,9 @@
       toolbar.querySelectorAll('.markup-tb-btn[data-tool]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       updateCursor();
+      // Show/hide stamp picker
+      if (STATE.tool === 'stamp') showStampPicker();
+      else hideStampPicker();
     }
 
     const colorBtn = e.target.closest('[data-color]');
@@ -214,6 +224,44 @@
   toolbar.querySelector('#markup-copy').addEventListener('click', () => window.__markupCapture?.copyToClipboard());
   toolbar.querySelector('#markup-export-notes').addEventListener('click', () => window.__markupCapture?.exportNotes(STATE.annotations));
   toolbar.querySelector('#markup-close').addEventListener('click', destroyOverlay);
+
+  // ---------------------------------------------------------------------------
+  // Stamp picker
+  // ---------------------------------------------------------------------------
+
+  const stampPicker = document.createElement('div');
+  stampPicker.id = 'markup-stamp-picker';
+  stampPicker.className = 'markup-stamp-picker';
+  stampPicker.innerHTML = `
+    <button class="markup-stamp-opt active" data-stamp="checkmark" title="Haekchen"><span style="color:#16A34A">\u2713</span></button>
+    <button class="markup-stamp-opt" data-stamp="cross" title="Kreuz"><span style="color:#DC2626">\u2717</span></button>
+    <button class="markup-stamp-opt" data-stamp="question" title="Fragezeichen"><span style="color:#F97316">?</span></button>
+    <button class="markup-stamp-opt" data-stamp="star" title="Stern"><span style="color:#EAB308">\u2605</span></button>
+  `;
+  stampPicker.style.display = 'none';
+  htmlLayer.appendChild(stampPicker);
+
+  stampPicker.addEventListener('click', (e) => {
+    const opt = e.target.closest('[data-stamp]');
+    if (!opt) return;
+    e.stopPropagation();
+    STATE.stampType = opt.dataset.stamp;
+    stampPicker.querySelectorAll('.markup-stamp-opt').forEach(b => b.classList.remove('active'));
+    opt.classList.add('active');
+  });
+
+  function showStampPicker() {
+    const stampBtn = toolbar.querySelector('[data-tool="stamp"]');
+    if (!stampBtn) return;
+    const rect = stampBtn.getBoundingClientRect();
+    stampPicker.style.left = rect.left + 'px';
+    stampPicker.style.top = (rect.bottom + 6) + 'px';
+    stampPicker.style.display = 'flex';
+  }
+
+  function hideStampPicker() {
+    stampPicker.style.display = 'none';
+  }
 
   // ---------------------------------------------------------------------------
   // Toolbar dragging
@@ -260,7 +308,7 @@
   // --- POINTER DOWN ---
   function onPointerDown(e) {
     if (isOnToolbar(e)) return;
-    if (e.target.closest('.markup-text-note, .markup-fmt-bar, .markup-text-input, .markup-text-label, .markup-text-input-wrap')) return;
+    if (e.target.closest('.markup-text-note, .markup-fmt-bar, .markup-text-input, .markup-text-label, .markup-text-input-wrap, .markup-stamp-picker')) return;
 
     const pos = getPos(e);
 
@@ -272,6 +320,7 @@
       case 'rect':
       case 'highlight':
       case 'blur':
+      case 'crop':
         STATE.isDrawing = true;
         STATE.startX = pos.x;
         STATE.startY = pos.y;
@@ -281,6 +330,9 @@
         break;
       case 'pin':
         placePin(pos);
+        break;
+      case 'stamp':
+        placeStamp(pos);
         break;
       case 'eraser':
         tryErase(e);
@@ -309,6 +361,9 @@
       case 'blur':
         previewBlur(pos);
         break;
+      case 'crop':
+        previewCrop(pos);
+        break;
     }
   }
 
@@ -332,6 +387,9 @@
         break;
       case 'blur':
         placeBlur(pos);
+        break;
+      case 'crop':
+        finishCrop(pos);
         break;
     }
 
@@ -831,6 +889,77 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Tool: Stamp
+  // ---------------------------------------------------------------------------
+
+  const STAMPS = {
+    checkmark: { symbol: '\u2713', color: '#16A34A' },
+    cross:     { symbol: '\u2717', color: '#DC2626' },
+    question:  { symbol: '?',      color: '#F97316' },
+    star:      { symbol: '\u2605', color: '#EAB308' },
+  };
+
+  function placeStamp(pos) {
+    const type = STATE.stampType || 'checkmark';
+    const stamp = STAMPS[type];
+    if (!stamp) return;
+
+    const el = document.createElement('div');
+    el.className = 'markup-stamp';
+    el.style.left = (pos.x - 14) + 'px';
+    el.style.top = (pos.y - 14) + 'px';
+    el.style.background = stamp.color;
+    el.textContent = stamp.symbol;
+    htmlLayer.appendChild(el);
+
+    STATE.annotations.push({
+      type: 'stamp',
+      element: el,
+      data: { x: pos.x, y: pos.y, stampType: type, symbol: stamp.symbol, color: stamp.color },
+    });
+    STATE.undoStack = [];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tool: Crop (region select)
+  // ---------------------------------------------------------------------------
+
+  let cropPreview = null;
+
+  function previewCrop(pos) {
+    if (cropPreview) cropPreview.remove();
+
+    const x = Math.min(STATE.startX, pos.x);
+    const y = Math.min(STATE.startY, pos.y);
+    const w = Math.abs(pos.x - STATE.startX);
+    const h = Math.abs(pos.y - STATE.startY);
+
+    cropPreview = document.createElement('div');
+    cropPreview.className = 'markup-crop-preview';
+    cropPreview.style.left = x + 'px';
+    cropPreview.style.top = y + 'px';
+    cropPreview.style.width = w + 'px';
+    cropPreview.style.height = h + 'px';
+    htmlLayer.appendChild(cropPreview);
+  }
+
+  function finishCrop(pos) {
+    if (cropPreview) {
+      cropPreview.remove();
+      cropPreview = null;
+    }
+
+    const x = Math.min(STATE.startX, pos.x);
+    const y = Math.min(STATE.startY, pos.y);
+    const w = Math.abs(pos.x - STATE.startX);
+    const h = Math.abs(pos.y - STATE.startY);
+
+    if (w < 10 || h < 10) return;
+
+    window.__markupCapture?.saveCrop({ x: x, y: y, width: w, height: h });
+  }
+
+  // ---------------------------------------------------------------------------
   // Tool: Eraser
   // ---------------------------------------------------------------------------
 
@@ -842,7 +971,7 @@
     for (let i = STATE.annotations.length - 1; i >= 0; i--) {
       const ann = STATE.annotations[i];
 
-      if (ann.type === 'pin' || ann.type === 'text') {
+      if (ann.type === 'pin' || ann.type === 'text' || ann.type === 'stamp') {
         const rect = ann.element.getBoundingClientRect();
         if (pos.x >= rect.left - 5 && pos.x <= rect.right + 5 &&
             pos.y >= rect.top - 5 && pos.y <= rect.bottom + 5) {
@@ -938,6 +1067,8 @@
       text: 'text',
       pin: 'crosshair',
       eraser: 'pointer',
+      crop: 'crosshair',
+      stamp: 'crosshair',
     };
     overlay.style.cursor = cursors[STATE.tool] || 'default';
   }

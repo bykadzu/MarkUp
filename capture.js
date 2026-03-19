@@ -54,7 +54,7 @@
   // Composite: render page + annotations into a single canvas
   // ---------------------------------------------------------------------------
 
-  async function captureComposite() {
+  async function captureComposite(cropBounds) {
     const overlay = window.__markupOverlay;
     const toolbar = window.__markupToolbar;
     const annotCanvas = window.__markupCanvas;
@@ -172,9 +172,12 @@
 
     // 4. Render HTML annotations (text notes, pins) via html2canvas
     const htmlLayer = window.__markupHtmlLayer;
+    const stampPicker = document.getElementById('markup-stamp-picker');
+    const stampPickerDisplay = stampPicker ? stampPicker.style.display : '';
     if (htmlLayer) {
-      // Temporarily hide toolbar for this capture
+      // Temporarily hide toolbar and stamp picker for this capture
       toolbar.style.display = 'none';
+      if (stampPicker) stampPicker.style.display = 'none';
       try {
         const htmlCanvas = await html2canvas(htmlLayer, {
           backgroundColor: null,
@@ -188,7 +191,20 @@
         // HTML layer capture failed — skip silently
       } finally {
         toolbar.style.display = '';
+        if (stampPicker) stampPicker.style.display = stampPickerDisplay;
       }
+    }
+
+    // If crop bounds specified, extract just that region
+    if (cropBounds) {
+      const croppedCanvas = document.createElement('canvas');
+      croppedCanvas.width = cropBounds.width;
+      croppedCanvas.height = cropBounds.height;
+      const croppedCtx = croppedCanvas.getContext('2d');
+      croppedCtx.drawImage(compositeCanvas,
+        cropBounds.x, cropBounds.y, cropBounds.width, cropBounds.height,
+        0, 0, cropBounds.width, cropBounds.height);
+      return croppedCanvas;
     }
 
     return compositeCanvas;
@@ -236,6 +252,46 @@
         URL.revokeObjectURL(url);
 
         // Copy PATH to clipboard (most useful for Claude Code workflow)
+        navigator.clipboard.writeText(savePath).then(function() {
+          showToast(`Gespeichert + Pfad kopiert: ${savePath}`, 5000);
+        }).catch(function() {
+          showToast(`Gespeichert: ${savePath}`, 5000);
+        });
+      }, 'image/png');
+    } catch (err) {
+      showToast('Fehler: ' + err.message, 4000);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Save cropped region as PNG
+  // ---------------------------------------------------------------------------
+
+  async function saveCrop(bounds) {
+    showToast('Bereich wird erfasst...', 15000);
+
+    try {
+      await new Promise(r => setTimeout(r, 50));
+
+      const croppedCanvas = await captureComposite(bounds);
+      const filename = getFilename();
+      const savePath = `C:\\Users\\gentl\\Downloads\\${filename}`;
+
+      croppedCanvas.toBlob(function(blob) {
+        if (!blob) {
+          showToast('Fehler: Screenshot konnte nicht erstellt werden.', 3000);
+          return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
         navigator.clipboard.writeText(savePath).then(function() {
           showToast(`Gespeichert + Pfad kopiert: ${savePath}`, 5000);
         }).catch(function() {
@@ -335,6 +391,7 @@
 
   window.__markupCapture = {
     savePNG,
+    saveCrop,
     copyToClipboard,
     exportNotes,
   };
