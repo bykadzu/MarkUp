@@ -1,0 +1,52 @@
+SHORT DESCRIPTION (132 chars):
+Annotate any website live — arrows, pins, blur, text notes — then save as PNG. Built for design QA and developer handoff.
+
+---
+
+FULL DESCRIPTION:
+
+MarkUp lets you annotate directly on any live webpage. No screenshot-first workflow. Drop numbered pins, draw arrows, highlight sections, blur sensitive info, then export as PNG with one click.
+
+TOOLS:
+- Pen: freehand drawing with adjustable width
+- Arrow: click start, click end — crisp SVG arrows
+- Rectangle: drag to draw outlines
+- Highlighter: semi-transparent overlay for marking text
+- Blur/Redact: backdrop-filter blur to censor sensitive info
+- Text notes: numbered badges with Bold/Italic/Underline, 3 sizes, drag to reposition, double-click to re-edit
+- Pin: drop numbered markers (1, 2, 3...) for ordered QA lists
+- Stamps: checkmark, cross, question mark, star — quick reactions
+- Eraser: click any annotation to remove it
+- Crop: region select to save just a portion
+- Undo: Ctrl+Z unlimited stack
+
+COLORS:
+9 preset colors + custom color picker. Active color applies to all tools.
+
+EXPORT:
+- Save as PNG (file path auto-copied to clipboard)
+- Copy annotated screenshot to clipboard
+- Export all text notes + pins as markdown
+
+KEYBOARD SHORTCUTS:
+- Ctrl+B: Bold text
+- Ctrl+I: Italic text
+- Ctrl+U: Underline text
+- Ctrl+Z: Undo
+- Ctrl+Enter: Finalize text note
+- ESC: Close MarkUp
+
+BUILT FOR DEVELOPERS:
+The PNG file path is auto-copied to clipboard on save. Paste it directly into Claude Code, VS Code, or any dev tool for instant visual feedback.
+
+PRIVACY:
+- Zero data collection. No analytics. No tracking. No account required.
+- All annotations stay local in your browser.
+- Screenshots save to your Downloads folder.
+- Open source: https://github.com/bykadzu/MarkUp
+
+TECH:
+- Manifest V3
+- Works offline (html2canvas bundled, no CDN)
+- 3-layer composite: Canvas (freehand) + SVG (shapes) + HTML (text/pins)
+- Also works in Safari 15.4+ via Web Extension support

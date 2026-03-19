@@ -1,0 +1,19 @@
+PROMO TILE: 440x280px (Chrome Web Store small promo tile)
+
+Design:
+- Dark background (#0a0a0a to #1a1a2e gradient, matching the glass-morphism toolbar aesthetic)
+- MarkUp logo/icon centered-left (the 128px icon, slightly enlarged)
+- Title text: "MarkUp" in white, bold, large (Inter or system font)
+- Subtitle: "Visual Website Annotations" in #94a3b8 (muted gray-blue)
+- Right side: a stylized preview showing a website with a red arrow, a numbered pin, and a blur region — tilted slightly for depth
+- Subtle glass-morphism card effect behind the preview (frosted glass with border)
+- No clutter — clean, dark, developer-tool aesthetic
+- KADZU wordmark small in bottom-right corner (#64748b, subtle)
+
+Color palette:
+- Background: #0a0a0a / #1a1a2e
+- Accent: #2563EB (Myfrendo blue) for subtle glow or underline
+- Text: white + #94a3b8
+- Icon colors from the extension: red arrow, blue pin, yellow highlight
+
+Vibe: "This is a serious developer tool, not a toy." Think Raycast, Linear, or Arc browser promo tiles.

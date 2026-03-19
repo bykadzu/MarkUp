@@ -1,0 +1,16 @@
+SCREENSHOT 1: "Core annotation workflow"
+
+Dimensions: 1280x800 or 640x400 (Chrome Web Store standard)
+
+Show:
+- A real website (e.g., a restaurant landing page or portfolio site) with MarkUp active
+- The dark glass-morphism toolbar visible on the right side
+- Several annotations visible on the page:
+  - A red arrow pointing to the navigation menu
+  - A numbered pin (1) on the hero image
+  - A text note (2) near the footer saying "Fix spacing here"
+  - A blue rectangle highlighting a CTA button
+- The toolbar shows the arrow tool selected (highlighted)
+- Color palette visible with red selected
+
+Caption: "Annotate directly on any live webpage — arrows, pins, text notes, shapes"

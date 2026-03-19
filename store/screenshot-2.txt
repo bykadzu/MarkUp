@@ -1,0 +1,14 @@
+SCREENSHOT 2: "Text formatting toolbar in action"
+
+Dimensions: 1280x800 or 640x400
+
+Show:
+- A webpage with MarkUp active
+- A text note being actively edited — the format bar is visible above the text input
+- Format bar shows: B (bold), I (italic), U (underline), S/M/L size buttons
+- The text note has mixed formatting: bold heading, normal body text
+- A second finalized text note nearby (numbered badge visible)
+- A pin marker (numbered 3) placed elsewhere on the page
+- The toolbar on the right with the Text tool highlighted
+
+Caption: "Rich text notes with bold, italic, underline — drag to reposition, double-click to re-edit"

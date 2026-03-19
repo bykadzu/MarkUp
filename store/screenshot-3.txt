@@ -1,0 +1,15 @@
+SCREENSHOT 3: "Blur/Redact tool hiding sensitive info"
+
+Dimensions: 1280x800 or 640x400
+
+Show:
+- A webpage showing a form or dashboard with personal data visible
+- Several blur/redact regions applied over:
+  - An email address field (blurred out)
+  - A phone number (blurred out)
+  - A profile picture (blurred out)
+- The toolbar on the right with the Blur tool selected (highlighted)
+- A highlight overlay on a different section (yellow semi-transparent)
+- The save button (green arrow) visible at the bottom of the toolbar, ready to export
+
+Caption: "Blur sensitive info before sharing screenshots — perfect for bug reports and client feedback"

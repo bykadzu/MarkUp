@@ -2,8 +2,9 @@
   "manifest_version": 3,
   "name": "MarkUp by Myfrendo",
   "version": "2.0.0",
-  "description": "Visuelles Annotations-Tool für Websites. Zeichnen, Notizen, Pins — als PNG speichern.",
+  "description": "Annotate any website live — arrows, pins, blur, text notes — then save as PNG. Design QA and developer handoff.",
   "permissions": ["activeTab", "scripting"],
+  "offline_enabled": true,
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
