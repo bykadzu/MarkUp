@@ -27,10 +27,14 @@
 
   const COLORS = [
     { value: '#DC2626', label: 'Rot' },
-    { value: '#2563EB', label: 'Blau' },
-    { value: '#16A34A', label: 'Gruen' },
+    { value: '#F97316', label: 'Orange' },
     { value: '#EAB308', label: 'Gelb' },
+    { value: '#16A34A', label: 'Gruen' },
+    { value: '#2563EB', label: 'Blau' },
+    { value: '#8B5CF6', label: 'Violett' },
+    { value: '#EC4899', label: 'Pink' },
     { value: '#FFFFFF', label: 'Weiss' },
+    { value: '#000000', label: 'Schwarz' },
   ];
 
   // ---------------------------------------------------------------------------
@@ -101,6 +105,9 @@
       <button class="markup-tb-btn" data-tool="highlight" title="Textmarker">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/><rect x="2" y="16" width="20" height="5" rx="1" fill="currentColor" opacity="0.3" stroke="none"/></svg>
       </button>
+      <button class="markup-tb-btn" data-tool="blur" title="Bereich unscharf machen / zensieren">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+      </button>
       <button class="markup-tb-btn" data-tool="text" title="Textnotiz">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7V4h16v3"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg>
       </button>
@@ -118,7 +125,11 @@
 
       <!-- Colors -->
       <div class="markup-tb-colors">
-        ${COLORS.map(c => `<button class="markup-color-btn${c.value === STATE.color ? ' active' : ''}" data-color="${c.value}" style="background:${c.value};${c.value === '#FFFFFF' ? 'border:1px solid #555;' : ''}" title="${c.label}"></button>`).join('')}
+        ${COLORS.map(c => `<button class="markup-color-btn${c.value === STATE.color ? ' active' : ''}" data-color="${c.value}" style="background:${c.value};${c.value === '#FFFFFF' || c.value === '#000000' ? 'border:1px solid #555;' : ''}" title="${c.label}"></button>`).join('')}
+        <label class="markup-color-custom" title="Eigene Farbe">
+          <input type="color" id="markup-custom-color" value="${STATE.color}" style="opacity:0;position:absolute;width:0;height:0;">
+          <span style="display:flex;width:18px;height:18px;border-radius:50%;background:conic-gradient(red,yellow,lime,aqua,blue,magenta,red);border:2px solid transparent;cursor:pointer;"></span>
+        </label>
       </div>
 
       <div class="markup-tb-divider"></div>
@@ -181,6 +192,15 @@
       colorBtn.classList.add('active');
     }
   });
+
+  // Custom color picker
+  const customColorInput = toolbar.querySelector('#markup-custom-color');
+  if (customColorInput) {
+    customColorInput.addEventListener('input', (e) => {
+      STATE.color = e.target.value;
+      toolbar.querySelectorAll('.markup-color-btn').forEach(b => b.classList.remove('active'));
+    });
+  }
 
   // Line width slider
   toolbar.querySelector('#markup-line-width').addEventListener('input', (e) => {
@@ -251,6 +271,7 @@
       case 'arrow':
       case 'rect':
       case 'highlight':
+      case 'blur':
         STATE.isDrawing = true;
         STATE.startX = pos.x;
         STATE.startY = pos.y;
@@ -285,6 +306,9 @@
       case 'highlight':
         previewHighlight(pos);
         break;
+      case 'blur':
+        previewBlur(pos);
+        break;
     }
   }
 
@@ -305,6 +329,9 @@
         break;
       case 'highlight':
         placeHighlight(pos);
+        break;
+      case 'blur':
+        placeBlur(pos);
         break;
     }
 
@@ -549,6 +576,53 @@
     rect.setAttribute('fill', hexToRgba(color, 0.3));
     rect.style.mixBlendMode = 'multiply';
     return rect;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tool: Blur / Redact
+  // ---------------------------------------------------------------------------
+
+  function previewBlur(pos) {
+    if (previewEl) previewEl.remove();
+    previewEl = createBlurOverlay(STATE.startX, STATE.startY, pos.x, pos.y);
+    previewEl.classList.add('markup-preview');
+    htmlLayer.appendChild(previewEl);
+  }
+
+  function placeBlur(pos) {
+    if (previewEl) previewEl.remove();
+    previewEl = null;
+    const dx = Math.abs(pos.x - STATE.startX);
+    const dy = Math.abs(pos.y - STATE.startY);
+    if (dx < 10 && dy < 10) return;
+
+    const el = createBlurOverlay(STATE.startX, STATE.startY, pos.x, pos.y);
+    htmlLayer.appendChild(el);
+
+    STATE.annotations.push({
+      type: 'blur',
+      element: el,
+      data: { x1: STATE.startX, y1: STATE.startY, x2: pos.x, y2: pos.y },
+    });
+    STATE.undoStack = [];
+  }
+
+  function createBlurOverlay(x1, y1, x2, y2) {
+    const div = document.createElement('div');
+    div.className = 'markup-blur-region';
+    div.style.position = 'absolute';
+    div.style.left = Math.min(x1, x2) + 'px';
+    div.style.top = Math.min(y1, y2) + 'px';
+    div.style.width = Math.abs(x2 - x1) + 'px';
+    div.style.height = Math.abs(y2 - y1) + 'px';
+    div.style.backdropFilter = 'blur(12px)';
+    div.style.webkitBackdropFilter = 'blur(12px)';
+    div.style.background = 'rgba(0, 0, 0, 0.15)';
+    div.style.borderRadius = '4px';
+    div.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+    div.style.pointerEvents = 'auto';
+    div.style.zIndex = '2147483645';
+    return div;
   }
 
   // ---------------------------------------------------------------------------
