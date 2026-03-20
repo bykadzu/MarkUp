@@ -1,6 +1,8 @@
 # MarkUp
 
-Chrome extension for visual website annotations — draw, write, screenshot. Design feedback made fast.
+**Draw on any website.** Annotate live pages with pen, arrows, text, pins, blur. Export as PNG. One click.
+
+The missing feedback tool for designers, developers, and anyone who points at screens and says "make this bigger."
 
 ## What it does
 
