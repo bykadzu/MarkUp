@@ -54,6 +54,57 @@
   // Composite: render page + annotations into a single canvas
   // ---------------------------------------------------------------------------
 
+  // Calculate bounding box that covers all annotations + viewport
+  function getAnnotationBounds() {
+    var minX = 0, minY = 0;
+    var maxX = window.innerWidth, maxY = window.innerHeight;
+    var padding = 20; // extra padding around annotations
+
+    // Check SVG elements (arrows, rects, highlights)
+    var svgLayer = window.__markupSvgLayer;
+    if (svgLayer) {
+      svgLayer.querySelectorAll('line, rect, ellipse, path, polygon').forEach(function(el) {
+        if (el.classList.contains('markup-preview')) return;
+        var bbox;
+        try { bbox = el.getBBox(); } catch(_e) { return; }
+        if (bbox.width === 0 && bbox.height === 0) return;
+        minX = Math.min(minX, bbox.x - padding);
+        minY = Math.min(minY, bbox.y - padding);
+        maxX = Math.max(maxX, bbox.x + bbox.width + padding);
+        maxY = Math.max(maxY, bbox.y + bbox.height + padding);
+      });
+    }
+
+    // Check HTML annotations (text notes, pins, stamps)
+    var htmlLayer = window.__markupHtmlLayer;
+    if (htmlLayer) {
+      htmlLayer.querySelectorAll('.markup-text-note, .markup-pin, .markup-stamp').forEach(function(el) {
+        var rect = el.getBoundingClientRect();
+        var absTop = rect.top + window.scrollY;
+        var absLeft = rect.left + window.scrollX;
+        minX = Math.min(minX, absLeft - window.scrollX - padding);
+        minY = Math.min(minY, absTop - window.scrollY - padding);
+        maxX = Math.max(maxX, absLeft - window.scrollX + rect.width + padding);
+        maxY = Math.max(maxY, absTop - window.scrollY + rect.height + padding);
+      });
+    }
+
+    // Clamp to non-negative and ensure minimum is viewport size
+    minX = Math.min(minX, 0);
+    minY = Math.min(minY, 0);
+    maxX = Math.max(maxX, window.innerWidth);
+    maxY = Math.max(maxY, window.innerHeight);
+
+    return {
+      x: Math.floor(minX),
+      y: Math.floor(minY),
+      width: Math.ceil(maxX - minX),
+      height: Math.ceil(maxY - minY),
+      offsetX: Math.floor(-minX), // how much to shift layers right
+      offsetY: Math.floor(-minY), // how much to shift layers down
+    };
+  }
+
   async function captureComposite(cropBounds) {
     const overlay = window.__markupOverlay;
     const toolbar = window.__markupToolbar;
@@ -62,6 +113,13 @@
     if (!overlay || !annotCanvas) {
       throw new Error('MarkUp overlay nicht gefunden.');
     }
+
+    // Calculate capture bounds that include all annotations
+    const bounds = getAnnotationBounds();
+    const captureW = bounds.width;
+    const captureH = bounds.height;
+    const offX = bounds.offsetX;
+    const offY = bounds.offsetY;
 
     // Temporarily hide the toolbar and overlay pointer-events so html2canvas captures the page
     toolbar.style.display = 'none';
@@ -106,12 +164,12 @@
       pageCanvas = await html2canvas(document.body, {
         useCORS: true,
         allowTaint: true,
-        width: window.innerWidth,
-        height: window.innerHeight,
-        windowWidth: window.innerWidth,
-        windowHeight: window.innerHeight,
-        x: window.scrollX,
-        y: window.scrollY,
+        width: captureW,
+        height: captureH,
+        windowWidth: captureW,
+        windowHeight: captureH,
+        x: window.scrollX + bounds.x,
+        y: window.scrollY + bounds.y,
         scale: 1,
         logging: false,
         onclone: function(clonedDoc) {
@@ -138,17 +196,17 @@
       toolbar.style.display = '';
     }
 
-    // Create composite canvas
+    // Create composite canvas at the expanded size
     const compositeCanvas = document.createElement('canvas');
-    compositeCanvas.width = window.innerWidth;
-    compositeCanvas.height = window.innerHeight;
+    compositeCanvas.width = captureW;
+    compositeCanvas.height = captureH;
     const cctx = compositeCanvas.getContext('2d');
 
-    // 1. Draw page screenshot
-    cctx.drawImage(pageCanvas, 0, 0, window.innerWidth, window.innerHeight);
+    // 1. Draw page screenshot (already sized to captureW x captureH)
+    cctx.drawImage(pageCanvas, 0, 0, captureW, captureH);
 
-    // 2. Draw the freehand canvas layer
-    cctx.drawImage(annotCanvas, 0, 0);
+    // 2. Draw the freehand canvas layer (offset to align with expanded bounds)
+    cctx.drawImage(annotCanvas, offX, offY);
 
     // 3. Render SVG layer (arrows, rects) onto the composite
     const svgLayer = window.__markupSvgLayer;
@@ -156,6 +214,10 @@
       const svgClone = svgLayer.cloneNode(true);
       // Remove preview elements
       svgClone.querySelectorAll('.markup-preview').forEach(el => el.remove());
+      // Offset the SVG viewBox to account for expanded bounds
+      svgClone.setAttribute('width', captureW);
+      svgClone.setAttribute('height', captureH);
+      svgClone.setAttribute('viewBox', bounds.x + ' ' + bounds.y + ' ' + captureW + ' ' + captureH);
       const svgData = new XMLSerializer().serializeToString(svgClone);
       const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
       const svgUrl = URL.createObjectURL(svgBlob);
@@ -183,8 +245,10 @@
           backgroundColor: null,
           scale: 1,
           logging: false,
-          width: window.innerWidth,
-          height: window.innerHeight,
+          width: captureW,
+          height: captureH,
+          x: bounds.x,
+          y: bounds.y,
         });
         cctx.drawImage(htmlCanvas, 0, 0);
       } catch (_e) {
@@ -202,7 +266,7 @@
       croppedCanvas.height = cropBounds.height;
       const croppedCtx = croppedCanvas.getContext('2d');
       croppedCtx.drawImage(compositeCanvas,
-        cropBounds.x, cropBounds.y, cropBounds.width, cropBounds.height,
+        cropBounds.x + offX, cropBounds.y + offY, cropBounds.width, cropBounds.height,
         0, 0, cropBounds.width, cropBounds.height);
       return croppedCanvas;
     }
