@@ -78,122 +78,99 @@
   toolbar.innerHTML = buildToolbarHTML();
   htmlLayer.appendChild(toolbar);
 
-  // Position toolbar at top-center (adjust after render to use actual width)
+  // Position toolbar at top-center
   toolbar.style.top = '12px';
-  requestAnimationFrame(() => {
-    const tbW = toolbar.getBoundingClientRect().width;
-    toolbar.style.left = Math.max(8, (window.innerWidth - tbW) / 2) + 'px';
-  });
+  toolbar.style.left = Math.max(8, (window.innerWidth - 224) / 2) + 'px';
 
   // ---------------------------------------------------------------------------
-  // Toolbar HTML builder — compact two-row pill layout
+  // Toolbar HTML builder — radial circular layout
   // ---------------------------------------------------------------------------
 
   function buildToolbarHTML() {
+    // Outer ring: 10 tools at 36° intervals, starting at 270° (top)
+    // Inner ring: 6 controls at 60° intervals, starting at 300°
     return `
-      <div class="markup-tb-row">
-        <div class="markup-tb-drag" id="markup-tb-drag" title="Move toolbar">
-          <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><circle cx="3" cy="2" r="1.2"/><circle cx="7" cy="2" r="1.2"/><circle cx="3" cy="7" r="1.2"/><circle cx="7" cy="7" r="1.2"/><circle cx="3" cy="12" r="1.2"/><circle cx="7" cy="12" r="1.2"/></svg>
-        </div>
-        <div class="markup-tb-divider"></div>
+      <!-- Center save / capture button -->
+      <button class="markup-tb-center" id="markup-save" title="Save as PNG">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/></svg>
+      </button>
 
-        <!-- Drawing tools -->
-        <button class="markup-tb-btn active" data-tool="draw" title="Pen">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-        </button>
-        <button class="markup-tb-btn" data-tool="arrow" title="Arrow">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="19" x2="19" y2="5"/><polyline points="12 5 19 5 19 12"/></svg>
-        </button>
-        <button class="markup-tb-btn" data-tool="rect" title="Rectangle">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-        </button>
-        <button class="markup-tb-btn" data-tool="highlight" title="Highlighter">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/><rect x="2" y="16" width="20" height="5" rx="1" fill="currentColor" opacity="0.3" stroke="none"/></svg>
-        </button>
-        <button class="markup-tb-btn" data-tool="blur" title="Blur / Redact">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
-        </button>
-        <button class="markup-tb-btn" data-tool="text" title="Text Note">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7V4h16v3"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg>
-        </button>
-        <button class="markup-tb-btn" data-tool="pin" title="Numbered Pin">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="7"/><text x="12" y="14" text-anchor="middle" font-size="10" fill="currentColor" stroke="none">1</text></svg>
-        </button>
-        <button class="markup-tb-btn" data-tool="stamp" title="Stamp">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 21h14"/><rect x="5" y="17" width="14" height="2"/><path d="M10 17v-3h4v3"/><rect x="9" y="5" width="6" height="9" rx="1"/></svg>
-        </button>
+      <!-- Outer ring: drawing tools -->
+      <button class="markup-tb-ring active" style="--a:270deg" data-tool="draw" title="Pen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+      </button>
+      <button class="markup-tb-ring" style="--a:306deg" data-tool="arrow" title="Arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="19" x2="19" y2="5"/><polyline points="12 5 19 5 19 12"/></svg>
+      </button>
+      <button class="markup-tb-ring" style="--a:342deg" data-tool="rect" title="Rectangle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      </button>
+      <button class="markup-tb-ring" style="--a:18deg" data-tool="highlight" title="Highlighter">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/><rect x="2" y="16" width="20" height="5" rx="1" fill="currentColor" opacity="0.3" stroke="none"/></svg>
+      </button>
+      <button class="markup-tb-ring" style="--a:54deg" data-tool="blur" title="Blur / Redact">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+      </button>
+      <button class="markup-tb-ring" style="--a:90deg" data-tool="text" title="Text Note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7V4h16v3"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg>
+      </button>
+      <button class="markup-tb-ring" style="--a:126deg" data-tool="pin" title="Numbered Pin">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="7"/><text x="12" y="14" text-anchor="middle" font-size="10" fill="currentColor" stroke="none">1</text></svg>
+      </button>
+      <button class="markup-tb-ring" style="--a:162deg" data-tool="stamp" title="Stamp">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 21h14"/><rect x="5" y="17" width="14" height="2"/><path d="M10 17v-3h4v3"/><rect x="9" y="5" width="6" height="9" rx="1"/></svg>
+      </button>
+      <button class="markup-tb-ring" style="--a:198deg" data-tool="eraser" title="Eraser">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+      </button>
+      <button class="markup-tb-ring" style="--a:234deg" data-tool="crop" title="Crop & Save">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2v4"/><path d="M6 6h12v12"/><path d="M18 22v-4"/><path d="M2 6h4"/><path d="M22 18h-4"/></svg>
+      </button>
 
-        <div class="markup-tb-divider"></div>
+      <!-- Inner ring: controls -->
+      <button class="markup-tb-inner" style="--a:300deg" id="markup-color-toggle" title="Color">
+        <span class="markup-tb-color-swatch" id="markup-color-swatch" style="background:${STATE.color}"></span>
+      </button>
+      <button class="markup-tb-inner" style="--a:0deg" id="markup-width-toggle" title="Stroke width">
+        <span class="markup-tb-width-swatch" id="markup-width-swatch"></span>
+      </button>
+      <button class="markup-tb-inner" style="--a:60deg" id="markup-undo" title="Undo (Ctrl+Z)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      </button>
+      <button class="markup-tb-inner" style="--a:120deg" id="markup-clear" title="Clear all">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+      <button class="markup-tb-inner" style="--a:180deg" id="markup-copy" title="Copy to clipboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      </button>
+      <button class="markup-tb-inner" style="--a:240deg" id="markup-export-notes" title="Export notes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      </button>
 
-        <button class="markup-tb-btn" data-tool="eraser" title="Eraser">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
-        </button>
-        <button class="markup-tb-btn" data-tool="crop" title="Crop & Save">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2v4"/><path d="M6 6h12v12"/><path d="M18 22v-4"/><path d="M2 6h4"/><path d="M22 18h-4"/></svg>
-        </button>
+      <!-- Close button at edge -->
+      <button class="markup-tb-close-btn" id="markup-close" title="Close (ESC)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <!-- Color panel (collapsible) -->
+      <div class="markup-tb-color-panel" id="markup-color-panel">
+        ${COLORS.map(c => `<button class="markup-color-btn${c.value === STATE.color ? ' active' : ''}" data-color="${c.value}" style="background:${c.value};${c.value === '#FFFFFF' || c.value === '#000000' ? 'border-color:#555;' : ''}" title="${c.label}"></button>`).join('')}
+        <label class="markup-color-custom" title="Custom color">
+          <input type="color" id="markup-custom-color" value="${STATE.color}" style="opacity:0;position:absolute;width:0;height:0;">
+          <span style="display:flex;width:22px;height:22px;border-radius:50%;background:conic-gradient(red,yellow,lime,aqua,blue,magenta,red);border:2px solid transparent;cursor:pointer;"></span>
+        </label>
       </div>
 
-      <div class="markup-tb-row">
-        <!-- Color picker (collapsible) -->
-        <div class="markup-tb-color-wrap" id="markup-color-wrap">
-          <button class="markup-tb-color-toggle" id="markup-color-toggle" title="Color">
-            <span class="markup-tb-color-swatch" id="markup-color-swatch" style="background:${STATE.color}"></span>
-          </button>
-          <div class="markup-tb-color-panel" id="markup-color-panel">
-            ${COLORS.map(c => `<button class="markup-color-btn${c.value === STATE.color ? ' active' : ''}" data-color="${c.value}" style="background:${c.value};${c.value === '#FFFFFF' || c.value === '#000000' ? 'border-color:#555;' : ''}" title="${c.label}"></button>`).join('')}
-            <label class="markup-color-custom" title="Custom color">
-              <input type="color" id="markup-custom-color" value="${STATE.color}" style="opacity:0;position:absolute;width:0;height:0;">
-              <span style="display:flex;width:20px;height:20px;border-radius:50%;background:conic-gradient(red,yellow,lime,aqua,blue,magenta,red);border:2px solid transparent;cursor:pointer;"></span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Stroke width (collapsible) -->
-        <div class="markup-tb-width-wrap" id="markup-width-wrap">
-          <button class="markup-tb-width-toggle" id="markup-width-toggle" title="Stroke width">
-            <span class="markup-tb-width-swatch" id="markup-width-swatch"></span>
-          </button>
-          <div class="markup-tb-width-panel" id="markup-width-panel">
-            <button class="markup-tb-width-opt${STATE.lineWidth <= 2 ? ' active' : ''}" data-width="2" title="Thin">
-              <svg width="24" height="6" viewBox="0 0 24 6"><line x1="2" y1="3" x2="22" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            </button>
-            <button class="markup-tb-width-opt${STATE.lineWidth > 2 && STATE.lineWidth <= 5 ? ' active' : ''}" data-width="4" title="Medium">
-              <svg width="24" height="8" viewBox="0 0 24 8"><line x1="2" y1="4" x2="22" y2="4" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
-            </button>
-            <button class="markup-tb-width-opt${STATE.lineWidth > 5 ? ' active' : ''}" data-width="8" title="Thick">
-              <svg width="24" height="12" viewBox="0 0 24 12"><line x1="2" y1="6" x2="22" y2="6" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg>
-            </button>
-          </div>
-        </div>
-
-        <div class="markup-tb-divider"></div>
-
-        <!-- Undo / Clear (subtle) -->
-        <button class="markup-tb-btn markup-tb-subtle" id="markup-undo" title="Undo (Ctrl+Z)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      <!-- Width panel (collapsible) -->
+      <div class="markup-tb-width-panel" id="markup-width-panel">
+        <button class="markup-tb-width-opt${STATE.lineWidth <= 2 ? ' active' : ''}" data-width="2" title="Thin">
+          <svg width="24" height="6" viewBox="0 0 24 6"><line x1="2" y1="3" x2="22" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         </button>
-        <button class="markup-tb-btn markup-tb-subtle" id="markup-clear" title="Clear all">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        <button class="markup-tb-width-opt${STATE.lineWidth > 2 && STATE.lineWidth <= 5 ? ' active' : ''}" data-width="4" title="Medium">
+          <svg width="24" height="8" viewBox="0 0 24 8"><line x1="2" y1="4" x2="22" y2="4" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
         </button>
-
-        <div class="markup-tb-divider"></div>
-
-        <!-- Save / capture (prominent accent button) -->
-        <button class="markup-tb-save" id="markup-save" title="Save as PNG">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/></svg>
-        </button>
-        <button class="markup-tb-btn markup-tb-subtle" id="markup-copy" title="Copy to clipboard">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        </button>
-        <button class="markup-tb-btn markup-tb-subtle" id="markup-export-notes" title="Export notes">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        </button>
-
-        <div class="markup-tb-divider"></div>
-
-        <!-- Close -->
-        <button class="markup-tb-btn markup-tb-close" id="markup-close" title="Close (ESC)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <button class="markup-tb-width-opt${STATE.lineWidth > 5 ? ' active' : ''}" data-width="8" title="Thick">
+          <svg width="24" height="12" viewBox="0 0 24 12"><line x1="2" y1="6" x2="22" y2="6" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg>
         </button>
       </div>
     `;
@@ -218,7 +195,7 @@
     const btn = e.target.closest('[data-tool]');
     if (btn) {
       STATE.tool = btn.dataset.tool;
-      toolbar.querySelectorAll('.markup-tb-btn[data-tool]').forEach(b => b.classList.remove('active'));
+      toolbar.querySelectorAll('.markup-tb-ring[data-tool]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       updateCursor();
       // Show/hide stamp picker
@@ -231,9 +208,7 @@
       STATE.color = colorBtn.dataset.color;
       toolbar.querySelectorAll('.markup-color-btn').forEach(b => b.classList.remove('active'));
       colorBtn.classList.add('active');
-      // Update color swatch
       document.getElementById('markup-color-swatch').style.background = STATE.color;
-      // Close color panel
       document.getElementById('markup-color-panel').classList.remove('open');
     }
 
@@ -243,7 +218,6 @@
       toolbar.querySelectorAll('.markup-tb-width-opt').forEach(b => b.classList.remove('active'));
       widthBtn.classList.add('active');
       updateWidthSwatch();
-      // Close width panel
       document.getElementById('markup-width-panel').classList.remove('open');
     }
   });
@@ -268,11 +242,11 @@
 
   // Close panels on outside click
   document.addEventListener('mousedown', (e) => {
-    if (!e.target.closest('#markup-color-wrap')) {
+    if (!e.target.closest('#markup-color-toggle') && !e.target.closest('#markup-color-panel')) {
       const cp = document.getElementById('markup-color-panel');
       if (cp) cp.classList.remove('open');
     }
-    if (!e.target.closest('#markup-width-wrap')) {
+    if (!e.target.closest('#markup-width-toggle') && !e.target.closest('#markup-width-panel')) {
       const wp = document.getElementById('markup-width-panel');
       if (wp) wp.classList.remove('open');
     }
@@ -335,16 +309,17 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Toolbar dragging (with viewport clamping)
+  // Toolbar dragging — grab from any dark background area
   // ---------------------------------------------------------------------------
 
-  const dragHandle = toolbar.querySelector('#markup-tb-drag');
-
-  dragHandle.addEventListener('mousedown', (e) => {
+  toolbar.addEventListener('mousedown', (e) => {
+    // Only drag if clicking on the dark background (not buttons/inputs/panels)
+    if (e.target.closest('button, input, label, .markup-tb-color-panel, .markup-tb-width-panel')) return;
     STATE.toolbarDrag.active = true;
     const rect = toolbar.getBoundingClientRect();
     STATE.toolbarDrag.offsetX = e.clientX - rect.left;
     STATE.toolbarDrag.offsetY = e.clientY - rect.top;
+    toolbar.style.cursor = 'grabbing';
     e.preventDefault();
   });
 
@@ -361,6 +336,9 @@
   });
 
   document.addEventListener('mouseup', () => {
+    if (STATE.toolbarDrag.active) {
+      toolbar.style.cursor = '';
+    }
     STATE.toolbarDrag.active = false;
   });
 
@@ -522,12 +500,11 @@
 
   function endFreehand() {
     if (!STATE.currentPath && !STATE.isDrawing) return;
-    // Store the path data so we can re-render on undo/redo
     if (STATE.currentPath && STATE.currentPath.points.length > 1) {
       const pathData = { ...STATE.currentPath };
       STATE.annotations.push({
         type: 'draw',
-        element: null,  // canvas-based, re-rendered
+        element: null,
         data: pathData,
       });
       STATE.undoStack = [];
@@ -535,7 +512,6 @@
     STATE.currentPath = null;
   }
 
-  // Re-render all freehand paths (used after undo/clear)
   function redrawCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     for (const ann of STATE.annotations) {
@@ -570,7 +546,7 @@
 
     const dx = pos.x - STATE.startX;
     const dy = pos.y - STATE.startY;
-    if (Math.sqrt(dx * dx + dy * dy) < 5) return; // Too small
+    if (Math.sqrt(dx * dx + dy * dy) < 5) return;
 
     const el = createSVGArrow(STATE.startX, STATE.startY, pos.x, pos.y, STATE.color, STATE.lineWidth);
     el.classList.add('markup-annotation');
@@ -587,7 +563,6 @@
   function createSVGArrow(x1, y1, x2, y2, color, width) {
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
 
-    // Arrowhead marker — unique per arrow to support different colors
     const markerId = 'markup-ah-' + Date.now() + Math.random().toString(36).slice(2, 6);
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
     const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
@@ -663,7 +638,6 @@
     rect.setAttribute('stroke', color);
     rect.setAttribute('stroke-width', width);
     rect.setAttribute('fill', color.replace(')', ', 0.08)').replace('rgb', 'rgba').replace('#', ''));
-    // For hex colors, use a semi-transparent fill
     rect.setAttribute('fill', hexToRgba(color, 0.08));
     rect.style.filter = 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))';
     return rect;
@@ -788,11 +762,9 @@
     badge.textContent = noteNum;
     badge.style.background = STATE.color;
 
-    // Formatting state for this note
     const fmt = { bold: false, italic: false, underline: false, size: 'M' };
     const SIZES = { S: 11, M: 13, L: 17 };
 
-    // Formatting toolbar
     const fmtBar = document.createElement('div');
     fmtBar.className = 'markup-fmt-bar';
     fmtBar.innerHTML = `
@@ -808,7 +780,6 @@
       <button class="markup-fmt-btn markup-fmt-confirm" data-fmt="confirm" title="Done (Ctrl+Enter)">&#10003;</button>
     `;
 
-    // Auto-expanding textarea
     const input = document.createElement('textarea');
     input.className = 'markup-text-input';
     input.placeholder = 'Type a note...';
@@ -818,21 +789,18 @@
     input.spellcheck = false;
     input.setAttribute('data-form-type', 'other');
 
-    // Auto-resize on input
     function autoResize() {
       input.style.height = 'auto';
       input.style.height = Math.min(input.scrollHeight, 200) + 'px';
     }
     input.addEventListener('input', autoResize);
 
-    // Apply formatting visually
     function applyFormat() {
       input.style.fontWeight = fmt.bold ? '700' : '400';
       input.style.fontStyle = fmt.italic ? 'italic' : 'normal';
       input.style.textDecoration = fmt.underline ? 'underline' : 'none';
       input.style.fontSize = SIZES[fmt.size] + 'px';
       input.style.color = STATE.color === '#DC2626' ? '#fff' : STATE.color;
-      // Update active states on format bar
       fmtBar.querySelector('[data-fmt="bold"]').classList.toggle('active', fmt.bold);
       fmtBar.querySelector('[data-fmt="italic"]').classList.toggle('active', fmt.italic);
       fmtBar.querySelector('[data-fmt="underline"]').classList.toggle('active', fmt.underline);
@@ -842,7 +810,6 @@
       autoResize();
     }
 
-    // Format bar click handler
     fmtBar.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-fmt]');
       if (!btn) return;
@@ -856,7 +823,7 @@
       applyFormat();
       input.focus();
     });
-    fmtBar.addEventListener('mousedown', (e) => e.preventDefault()); // Prevent blur
+    fmtBar.addEventListener('mousedown', (e) => e.preventDefault());
 
     const inputWrap = document.createElement('div');
     inputWrap.className = 'markup-text-input-wrap';
@@ -867,13 +834,9 @@
     wrapper.appendChild(inputWrap);
     htmlLayer.appendChild(wrapper);
 
-    // Set initial size styling
     applyFormat();
-
-    // Focus the input
     setTimeout(() => input.focus(), 50);
 
-    // On Ctrl+Enter or blur, finalize (Enter inserts newlines)
     let finalized = false;
     const finalize = () => {
       if (finalized) return;
@@ -894,7 +857,6 @@
       if (inputWrap.parentNode) inputWrap.remove();
       wrapper.appendChild(label);
 
-      // Double-click to re-edit
       label.addEventListener('dblclick', (e) => {
         e.stopPropagation();
         label.remove();
@@ -906,7 +868,6 @@
         setTimeout(() => input.focus(), 50);
       });
 
-      // Drag to reposition
       let dragStart = null;
       wrapper.style.cursor = 'grab';
       wrapper.addEventListener('mousedown', (e) => {
@@ -933,16 +894,14 @@
     };
 
     input.addEventListener('keydown', (e) => {
-      e.stopPropagation(); // Don't trigger ESC close
+      e.stopPropagation();
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); finalize(); }
       if (e.key === 'Escape') { wrapper.remove(); }
-      // Formatting shortcuts
       if ((e.ctrlKey || e.metaKey) && e.key === 'b') { e.preventDefault(); fmt.bold = !fmt.bold; applyFormat(); }
       if ((e.ctrlKey || e.metaKey) && e.key === 'i') { e.preventDefault(); fmt.italic = !fmt.italic; applyFormat(); }
       if ((e.ctrlKey || e.metaKey) && e.key === 'u') { e.preventDefault(); fmt.underline = !fmt.underline; applyFormat(); }
     });
     input.addEventListener('blur', () => {
-      // Small delay to allow format bar clicks
       setTimeout(() => {
         try {
           if (!finalized && (!fmtBar.parentNode || !fmtBar.matches(':hover'))) finalize();
@@ -1055,7 +1014,6 @@
     const pos = getPos(e);
     const threshold = 20;
 
-    // Check HTML annotations (pins, text notes) — reverse order for topmost first
     for (let i = STATE.annotations.length - 1; i >= 0; i--) {
       const ann = STATE.annotations[i];
 
@@ -1070,7 +1028,6 @@
       }
 
       if (ann.type === 'arrow' || ann.type === 'rect') {
-        // Check bounding box of SVG element
         const bbox = ann.element.getBoundingClientRect();
         if (pos.x >= bbox.left - threshold && pos.x <= bbox.right + threshold &&
             pos.y >= bbox.top - threshold && pos.y <= bbox.bottom + threshold) {
@@ -1081,7 +1038,6 @@
       }
 
       if (ann.type === 'draw') {
-        // Check proximity to any point in the path
         for (const pt of ann.data.points) {
           const dx = pos.x - pt.x;
           const dy = pos.y - pt.y;
@@ -1120,7 +1076,6 @@
     STATE.undoStack = [];
     STATE.pinCounter = 1;
     redrawCanvas();
-    // Clear SVG preview if any
     svgLayer.querySelectorAll('.markup-preview, .markup-annotation').forEach(el => el.remove());
   }
 
@@ -1129,7 +1084,6 @@
   // ---------------------------------------------------------------------------
 
   function onKeyDown(e) {
-    // Don't intercept when typing in text input
     if (e.target.classList.contains('markup-text-input')) return;
 
     if (e.key === 'Escape') {
@@ -1174,7 +1128,6 @@
     svgLayer.setAttribute('width', window.innerWidth);
     svgLayer.setAttribute('height', window.innerHeight);
     redrawCanvas();
-    // Snap toolbar back into visible area
     clampToolbarPosition();
   });
 
