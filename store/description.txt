@@ -1,5 +1,5 @@
 SHORT DESCRIPTION (132 chars):
-Annotate any website live — arrows, pins, blur, text notes — then save as PNG. Built for design QA and developer handoff.
+Draw on any website — arrows, pins, blur, text notes — export PNG with file path auto-copied for AI workflows. Zero data collection.
 
 ---
 
@@ -28,6 +28,9 @@ EXPORT:
 - Copy annotated screenshot to clipboard
 - Export all text notes + pins as markdown
 
+BUILT FOR DEVELOPER & AI WORKFLOWS:
+The PNG file path is auto-copied to clipboard on save. Paste it directly into Claude Code, Cursor, VS Code, or any AI coding tool for instant visual context. Perfect for design QA, bug reports, and developer handoff.
+
 KEYBOARD SHORTCUTS:
 - Ctrl+B: Bold text
 - Ctrl+I: Italic text
@@ -36,17 +39,9 @@ KEYBOARD SHORTCUTS:
 - Ctrl+Enter: Finalize text note
 - ESC: Close MarkUp
 
-BUILT FOR DEVELOPERS:
-The PNG file path is auto-copied to clipboard on save. Paste it directly into Claude Code, VS Code, or any dev tool for instant visual feedback.
-
 PRIVACY:
 - Zero data collection. No analytics. No tracking. No account required.
 - All annotations stay local in your browser.
 - Screenshots save to your Downloads folder.
+- No external network requests — html2canvas is bundled.
 - Open source: https://github.com/bykadzu/MarkUp
-
-TECH:
-- Manifest V3
-- Works offline (html2canvas bundled, no CDN)
-- 3-layer composite: Canvas (freehand) + SVG (shapes) + HTML (text/pins)
-- Also works in Safari 15.4+ via Web Extension support
