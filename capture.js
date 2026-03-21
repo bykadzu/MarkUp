@@ -275,7 +275,7 @@
     const annotCanvas = window.__markupCanvas;
 
     if (!overlay || !annotCanvas) {
-      throw new Error('MarkUp overlay nicht gefunden.');
+      throw new Error('MarkUp overlay not found.');
     }
 
     // Calculate capture bounds that include all annotations
@@ -374,7 +374,7 @@
   // ---------------------------------------------------------------------------
 
   async function savePNG() {
-    showToast('Wird erfasst...', 15000);
+    showToast('Capturing...', 15000);
 
     try {
       // Small delay so toast renders before html2canvas blocks
@@ -387,7 +387,7 @@
       // Use original callback pattern (proven to work)
       compositeCanvas.toBlob(function(blob) {
         if (!blob) {
-          showToast('Fehler: Screenshot konnte nicht erstellt werden.', 3000);
+          showToast('Error: Failed to create screenshot.', 3000);
           return;
         }
 
@@ -403,13 +403,13 @@
 
         // Copy PATH to clipboard (most useful for Claude Code workflow)
         navigator.clipboard.writeText(savePath).then(function() {
-          showToast(`Gespeichert + Pfad kopiert: ${savePath}`, 5000);
+          showToast(`Saved + path copied: ${savePath}`, 5000);
         }).catch(function() {
-          showToast(`Gespeichert: ${savePath}`, 5000);
+          showToast(`Saved: ${savePath}`, 5000);
         });
       }, 'image/png');
     } catch (err) {
-      showToast('Fehler: ' + err.message, 4000);
+      showToast('Error: ' + err.message, 4000);
     }
   }
 
@@ -418,7 +418,7 @@
   // ---------------------------------------------------------------------------
 
   async function saveCrop(bounds) {
-    showToast('Bereich wird erfasst...', 15000);
+    showToast('Capturing region...', 15000);
 
     try {
       await new Promise(r => setTimeout(r, 50));
@@ -429,7 +429,7 @@
 
       croppedCanvas.toBlob(function(blob) {
         if (!blob) {
-          showToast('Fehler: Screenshot konnte nicht erstellt werden.', 3000);
+          showToast('Error: Failed to create screenshot.', 3000);
           return;
         }
 
@@ -443,13 +443,13 @@
         URL.revokeObjectURL(url);
 
         navigator.clipboard.writeText(savePath).then(function() {
-          showToast(`Gespeichert + Pfad kopiert: ${savePath}`, 5000);
+          showToast(`Saved + path copied: ${savePath}`, 5000);
         }).catch(function() {
-          showToast(`Gespeichert: ${savePath}`, 5000);
+          showToast(`Saved: ${savePath}`, 5000);
         });
       }, 'image/png');
     } catch (err) {
-      showToast('Fehler: ' + err.message, 4000);
+      showToast('Error: ' + err.message, 4000);
     }
   }
 
@@ -458,7 +458,7 @@
   // ---------------------------------------------------------------------------
 
   async function copyToClipboard() {
-    showToast('Wird erfasst...', 15000);
+    showToast('Capturing...', 15000);
 
     try {
       await new Promise(r => setTimeout(r, 50));
@@ -467,19 +467,19 @@
 
       compositeCanvas.toBlob(function(blob) {
         if (!blob) {
-          showToast('Fehler beim Kopieren.', 3000);
+          showToast('Failed to copy.', 3000);
           return;
         }
         navigator.clipboard.write([
           new ClipboardItem({ 'image/png': blob })
         ]).then(function() {
-          showToast('In Zwischenablage kopiert!', 3000);
+          showToast('Copied to clipboard!', 3000);
         }).catch(function(err) {
-          showToast('Zwischenablage-Fehler: ' + err.message, 4000);
+          showToast('Clipboard error: ' + err.message, 4000);
         });
       }, 'image/png');
     } catch (err) {
-      showToast('Fehler: ' + err.message, 4000);
+      showToast('Error: ' + err.message, 4000);
     }
   }
 
@@ -489,7 +489,7 @@
 
   function exportNotes(annotations) {
     if (!annotations) {
-      showToast('Keine Annotationen vorhanden.', 3000);
+      showToast('No annotations found.', 3000);
       return;
     }
 
@@ -497,16 +497,16 @@
     const pins = annotations.filter(a => a.type === 'pin');
 
     if (textNotes.length === 0 && pins.length === 0) {
-      showToast('Keine Textnotizen oder Pins vorhanden.', 3000);
+      showToast('No text notes or pins found.', 3000);
       return;
     }
 
-    let md = `# MarkUp Notizen — ${window.location.hostname}\n`;
-    md += `Datum: ${new Date().toLocaleString('de-CH')}\n`;
+    let md = `# MarkUp Notes — ${window.location.hostname}\n`;
+    md += `Date: ${new Date().toLocaleString('en-US')}\n`;
     md += `URL: ${window.location.href}\n\n`;
 
     if (textNotes.length > 0) {
-      md += `## Textnotizen\n\n`;
+      md += `## Text Notes\n\n`;
       for (const note of textNotes) {
         md += `${note.data.num}. ${note.data.text}\n`;
       }
@@ -516,7 +516,7 @@
     if (pins.length > 0) {
       md += `## Pins\n\n`;
       for (const pin of pins) {
-        md += `- Pin #${pin.data.num} bei Position (${Math.round(pin.data.x)}, ${Math.round(pin.data.y)})\n`;
+        md += `- Pin #${pin.data.num} at position (${Math.round(pin.data.x)}, ${Math.round(pin.data.y)})\n`;
       }
       md += '\n';
     }
@@ -532,7 +532,7 @@
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    showToast(`${textNotes.length} Notizen + ${pins.length} Pins exportiert.`, 3000);
+    showToast(`${textNotes.length} notes + ${pins.length} pins exported.`, 3000);
   }
 
   // ---------------------------------------------------------------------------
