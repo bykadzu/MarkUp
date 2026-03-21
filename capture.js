@@ -105,6 +105,24 @@
     };
   }
 
+  // Request native screenshot from background service worker
+  function requestNativeScreenshot() {
+    const api = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
+    return new Promise(function(resolve, reject) {
+      api.runtime.sendMessage({ type: 'captureTab' }, function(response) {
+        if (api.runtime.lastError) {
+          reject(new Error(api.runtime.lastError.message));
+        } else if (response && response.error) {
+          reject(new Error(response.error));
+        } else if (response && response.dataUrl) {
+          resolve(response.dataUrl);
+        } else {
+          reject(new Error('No screenshot data received'));
+        }
+      });
+    });
+  }
+
   async function captureComposite(cropBounds) {
     const overlay = window.__markupOverlay;
     const toolbar = window.__markupToolbar;
@@ -121,80 +139,24 @@
     const offX = bounds.offsetX;
     const offY = bounds.offsetY;
 
-    // Temporarily hide the toolbar and overlay pointer-events so html2canvas captures the page
+    // Hide overlay and toolbar so native screenshot captures clean page
     toolbar.style.display = 'none';
-    overlay.style.pointerEvents = 'none';
     overlay.style.display = 'none';
 
-    let pageCanvas;
+    let pageDataUrl;
     try {
-      // Capture the underlying page
-      // Pre-process: strip oklab/oklch from ALL stylesheets + inline styles
-      // html2canvas can't parse modern CSS color functions
-      const allStyles = document.querySelectorAll('style, link[rel="stylesheet"]');
-      const originalStyles = [];
-      const oklabRegex = /oklab\([^)]*\)/g;
-      const oklchRegex = /oklch\([^)]*\)/g;
-      const fallback = 'rgb(128,128,128)';
+      // Wait for repaint so overlay is fully hidden
+      await new Promise(function(r) { requestAnimationFrame(function() { setTimeout(r, 50); }); });
 
-      // Fix <style> tags
-      document.querySelectorAll('style').forEach(function(s) {
-        originalStyles.push({ el: s, text: s.textContent });
-        s.textContent = s.textContent.replace(oklabRegex, fallback).replace(oklchRegex, fallback);
-      });
-
-      // Fix inline styles on all elements
-      const inlineFixed = [];
-      document.querySelectorAll('[style]').forEach(function(el) {
-        var orig = el.getAttribute('style');
-        if (orig && (orig.includes('oklab') || orig.includes('oklch'))) {
-          inlineFixed.push({ el: el, style: orig });
-          el.setAttribute('style', orig.replace(oklabRegex, fallback).replace(oklchRegex, fallback));
-        }
-      });
-
-      // Fix CSS custom properties on :root / html
-      var rootStyle = document.documentElement.getAttribute('style') || '';
-      var hadRootFix = false;
-      if (rootStyle.includes('oklab') || rootStyle.includes('oklch')) {
-        hadRootFix = true;
-        document.documentElement.setAttribute('style', rootStyle.replace(oklabRegex, fallback).replace(oklchRegex, fallback));
-      }
-
-      pageCanvas = await html2canvas(document.body, {
-        useCORS: true,
-        allowTaint: true,
-        width: captureW,
-        height: captureH,
-        windowWidth: captureW,
-        windowHeight: captureH,
-        x: window.scrollX + bounds.x,
-        y: window.scrollY + bounds.y,
-        scale: 1,
-        logging: false,
-        onclone: function(clonedDoc) {
-          // Also fix in the cloned document html2canvas uses
-          clonedDoc.querySelectorAll('style').forEach(function(s) {
-            s.textContent = s.textContent.replace(oklabRegex, fallback).replace(oklchRegex, fallback);
-          });
-          clonedDoc.querySelectorAll('[style]').forEach(function(el) {
-            var st = el.getAttribute('style');
-            if (st && (st.includes('oklab') || st.includes('oklch'))) {
-              el.setAttribute('style', st.replace(oklabRegex, fallback).replace(oklchRegex, fallback));
-            }
-          });
-        }
-      });
-
-      // Restore everything
-      originalStyles.forEach(function(item) { item.el.textContent = item.text; });
-      inlineFixed.forEach(function(item) { item.el.setAttribute('style', item.style); });
-      if (hadRootFix) document.documentElement.setAttribute('style', rootStyle);
+      // Native screenshot — near-instant vs minutes with html2canvas
+      pageDataUrl = await requestNativeScreenshot();
     } finally {
       overlay.style.display = '';
-      overlay.style.pointerEvents = '';
       toolbar.style.display = '';
     }
+
+    // Load the screenshot image
+    const pageImg = await loadImage(pageDataUrl);
 
     // Create composite canvas at the expanded size
     const compositeCanvas = document.createElement('canvas');
@@ -202,8 +164,9 @@
     compositeCanvas.height = captureH;
     const cctx = compositeCanvas.getContext('2d');
 
-    // 1. Draw page screenshot (already sized to captureW x captureH)
-    cctx.drawImage(pageCanvas, 0, 0, captureW, captureH);
+    // 1. Draw page screenshot at viewport position within expanded bounds
+    //    Native capture is at device pixel ratio; draw at 1x to match annotation layers
+    cctx.drawImage(pageImg, offX, offY, window.innerWidth, window.innerHeight);
 
     // 2. Draw the freehand canvas layer (offset to align with expanded bounds)
     cctx.drawImage(annotCanvas, offX, offY);
@@ -233,11 +196,11 @@
     }
 
     // 4. Render HTML annotations (text notes, pins) via html2canvas
+    //    Only the small annotation layer — not the full page DOM
     const htmlLayer = window.__markupHtmlLayer;
     const stampPicker = document.getElementById('markup-stamp-picker');
     const stampPickerDisplay = stampPicker ? stampPicker.style.display : '';
-    if (htmlLayer) {
-      // Temporarily hide toolbar and stamp picker for this capture
+    if (htmlLayer && htmlLayer.children.length > 0) {
       toolbar.style.display = 'none';
       if (stampPicker) stampPicker.style.display = 'none';
       try {

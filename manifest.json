@@ -4,6 +4,9 @@
   "version": "2.0.0",
   "description": "Annotate any website live — arrows, pins, blur, text notes — then save as PNG. Design QA and developer handoff.",
   "permissions": ["activeTab", "scripting"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "homepage_url": "https://github.com/bykadzu/MarkUp",
   "offline_enabled": true,
   "action": {
