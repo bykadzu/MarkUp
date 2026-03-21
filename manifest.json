@@ -26,7 +26,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["lib/html2canvas.min.js", "styles.css"],
+      "resources": ["styles.css"],
       "matches": ["<all_urls>"]
     }
   ],

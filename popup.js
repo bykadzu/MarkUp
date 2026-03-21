@@ -14,12 +14,6 @@ document.getElementById('btn-annotate').addEventListener('click', async () => {
     files: ['styles.css']
   });
 
-  // Inject html2canvas library
-  await api.scripting.executeScript({
-    target: { tabId: tab.id },
-    files: ['lib/html2canvas.min.js']
-  });
-
   // Inject capture utilities
   await api.scripting.executeScript({
     target: { tabId: tab.id },

@@ -105,6 +105,152 @@
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Direct canvas rendering for HTML annotations (replaces html2canvas)
+  // ---------------------------------------------------------------------------
+
+  var ANNOTATION_FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif";
+
+  function drawRoundedRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function drawCircle(ctx, cx, cy, r, fillColor, borderWidth, borderColor) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    if (borderWidth > 0) {
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = borderWidth;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawCenteredText(ctx, text, cx, cy, fontSize, fontWeight) {
+    ctx.save();
+    ctx.fillStyle = '#fff';
+    ctx.font = fontWeight + ' ' + fontSize + 'px ' + ANNOTATION_FONT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, cx, cy);
+    ctx.restore();
+  }
+
+  function renderAnnotationsToCanvas(cctx, offX, offY) {
+    var htmlLayer = window.__markupHtmlLayer;
+    if (!htmlLayer || htmlLayer.children.length === 0) return;
+
+    // Render pins (28px circles with number)
+    htmlLayer.querySelectorAll('.markup-pin').forEach(function(el) {
+      var rect = el.getBoundingClientRect();
+      var x = rect.left + offX;
+      var y = rect.top + offY;
+      var r = rect.width / 2;
+      var bg = el.style.background || window.getComputedStyle(el).backgroundColor;
+      drawCircle(cctx, x + r, y + r, r - 1, bg, 2, 'rgba(255, 255, 255, 0.3)');
+      drawCenteredText(cctx, el.textContent, x + r, y + r, 13, '700');
+    });
+
+    // Render stamps (28px circles with symbol)
+    htmlLayer.querySelectorAll('.markup-stamp').forEach(function(el) {
+      var rect = el.getBoundingClientRect();
+      var x = rect.left + offX;
+      var y = rect.top + offY;
+      var r = rect.width / 2;
+      var bg = el.style.background || window.getComputedStyle(el).backgroundColor;
+      drawCircle(cctx, x + r, y + r, r - 1, bg, 2, 'rgba(255, 255, 255, 0.3)');
+      drawCenteredText(cctx, el.textContent, x + r, y + r, 18, '700');
+    });
+
+    // Render text notes (badge circle + label box)
+    htmlLayer.querySelectorAll('.markup-text-note').forEach(function(wrapper) {
+      var badge = wrapper.querySelector('.markup-text-badge');
+      var label = wrapper.querySelector('.markup-text-label');
+
+      // Badge: small numbered circle
+      if (badge) {
+        var br = badge.getBoundingClientRect();
+        var bx = br.left + offX;
+        var by = br.top + offY;
+        var bRadius = br.width / 2;
+        var bg = badge.style.background || window.getComputedStyle(badge).backgroundColor;
+        drawCircle(cctx, bx + bRadius, by + bRadius, bRadius, bg, 0, '');
+        drawCenteredText(cctx, badge.textContent, bx + bRadius, by + bRadius, 11, '700');
+      }
+
+      // Label: dark rounded rectangle with text
+      if (label) {
+        var lr = label.getBoundingClientRect();
+        var lx = lr.left + offX;
+        var ly = lr.top + offY;
+        var lw = lr.width;
+        var lh = lr.height;
+        var cs = window.getComputedStyle(label);
+
+        // Background box with shadow
+        cctx.save();
+        cctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        cctx.shadowBlur = 6;
+        cctx.shadowOffsetY = 2;
+        drawRoundedRect(cctx, lx, ly, lw, lh, 6);
+        cctx.fillStyle = 'rgba(18, 18, 28, 0.9)';
+        cctx.fill();
+        cctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        cctx.lineWidth = 1;
+        cctx.stroke();
+        cctx.restore();
+
+        // Text content
+        var fontSize = parseFloat(cs.fontSize) || 13;
+        var fontWeight = cs.fontWeight || '400';
+        var fontStyle = cs.fontStyle || 'normal';
+        var color = cs.color || '#f0f0f0';
+        var hasUnderline = (cs.textDecorationLine || cs.textDecoration || '').indexOf('underline') !== -1;
+
+        cctx.save();
+        cctx.fillStyle = color;
+        cctx.font = fontStyle + ' ' + fontWeight + ' ' + fontSize + 'px ' + ANNOTATION_FONT;
+        cctx.textBaseline = 'top';
+
+        var padX = 10, padY = 6;
+        var lineHeight = fontSize * 1.4;
+        var lines = label.textContent.split('\n');
+        var textY = ly + padY;
+
+        for (var i = 0; i < lines.length; i++) {
+          cctx.fillText(lines[i], lx + padX, textY);
+          if (hasUnderline && lines[i].length > 0) {
+            var metrics = cctx.measureText(lines[i]);
+            cctx.beginPath();
+            cctx.moveTo(lx + padX, textY + fontSize + 1);
+            cctx.lineTo(lx + padX + metrics.width, textY + fontSize + 1);
+            cctx.strokeStyle = color;
+            cctx.lineWidth = 1;
+            cctx.stroke();
+          }
+          textY += lineHeight;
+        }
+        cctx.restore();
+      }
+    });
+  }
+
   // Request native screenshot from background service worker
   function requestNativeScreenshot() {
     const api = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
@@ -195,32 +341,9 @@
       }
     }
 
-    // 4. Render HTML annotations (text notes, pins) via html2canvas
-    //    Only the small annotation layer — not the full page DOM
-    const htmlLayer = window.__markupHtmlLayer;
-    const stampPicker = document.getElementById('markup-stamp-picker');
-    const stampPickerDisplay = stampPicker ? stampPicker.style.display : '';
-    if (htmlLayer && htmlLayer.children.length > 0) {
-      toolbar.style.display = 'none';
-      if (stampPicker) stampPicker.style.display = 'none';
-      try {
-        const htmlCanvas = await html2canvas(htmlLayer, {
-          backgroundColor: null,
-          scale: 1,
-          logging: false,
-          width: captureW,
-          height: captureH,
-          x: bounds.x,
-          y: bounds.y,
-        });
-        cctx.drawImage(htmlCanvas, 0, 0);
-      } catch (_e) {
-        // HTML layer capture failed — skip silently
-      } finally {
-        toolbar.style.display = '';
-        if (stampPicker) stampPicker.style.display = stampPickerDisplay;
-      }
-    }
+    // 4. Render HTML annotations (text notes, pins, stamps) directly to canvas
+    //    No html2canvas needed — these are simple shapes we control
+    renderAnnotationsToCanvas(cctx, offX, offY);
 
     // If crop bounds specified, extract just that region
     if (cropBounds) {
