@@ -1,9 +1,9 @@
 // MarkUp Background — Service worker for native tab capture
-// Uses chrome.tabs.captureVisibleTab for instant screenshots instead of html2canvas
+// Uses chrome.tabs.captureVisibleTab for instant screenshots (JPEG for speed)
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'captureTab') {
-    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
+    chrome.tabs.captureVisibleTab(null, { format: 'jpeg', quality: 92 }, (dataUrl) => {
       if (chrome.runtime.lastError) {
         sendResponse({ error: chrome.runtime.lastError.message });
       } else {

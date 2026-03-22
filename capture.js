@@ -106,7 +106,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Direct canvas rendering for HTML annotations (replaces html2canvas)
+  // Direct canvas rendering for HTML annotations
   // ---------------------------------------------------------------------------
 
   var ANNOTATION_FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif";
@@ -294,7 +294,7 @@
       // Wait for repaint so overlay is fully hidden
       await new Promise(function(r) { requestAnimationFrame(function() { setTimeout(r, 50); }); });
 
-      // Native screenshot — near-instant vs minutes with html2canvas
+      // Native screenshot via chrome.tabs.captureVisibleTab (JPEG for speed)
       pageDataUrl = await requestNativeScreenshot();
     } finally {
       overlay.style.display = '';
@@ -342,7 +342,7 @@
     }
 
     // 4. Render HTML annotations (text notes, pins, stamps) directly to canvas
-    //    No html2canvas needed — these are simple shapes we control
+    //    Direct canvas rendering — these are simple shapes we control
     renderAnnotationsToCanvas(cctx, offX, offY);
 
     // If crop bounds specified, extract just that region
@@ -374,17 +374,16 @@
   // ---------------------------------------------------------------------------
 
   async function savePNG() {
-    showToast('Capturing...', 15000);
+    showToast('Capturing...', 5000);
 
     try {
-      // Small delay so toast renders before html2canvas blocks
+      // Small delay so toast renders before capture starts
       await new Promise(r => setTimeout(r, 50));
 
       const compositeCanvas = await captureComposite();
       const filename = getFilename();
       const savePath = `C:\\Users\\gentl\\Downloads\\${filename}`;
 
-      // Use original callback pattern (proven to work)
       compositeCanvas.toBlob(function(blob) {
         if (!blob) {
           showToast('Error: Failed to create screenshot.', 3000);
@@ -418,7 +417,7 @@
   // ---------------------------------------------------------------------------
 
   async function saveCrop(bounds) {
-    showToast('Capturing region...', 15000);
+    showToast('Capturing region...', 5000);
 
     try {
       await new Promise(r => setTimeout(r, 50));
@@ -458,7 +457,7 @@
   // ---------------------------------------------------------------------------
 
   async function copyToClipboard() {
-    showToast('Capturing...', 15000);
+    showToast('Capturing...', 5000);
 
     try {
       await new Promise(r => setTimeout(r, 50));
