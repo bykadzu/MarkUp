@@ -1,5 +1,28 @@
-// MarkUp Content Script — Main annotation engine
-// Injected into the active tab when user clicks Annotate
+// Sentry error reporting (lightweight - no SDK)
+function reportErrorToSentry(error, context = {}) {
+  const envelope = `{"event_id":"${crypto.randomUUID().replace(/-/g, '')}","sent_at":"${new Date().toISOString()}","dsn":"https://b627e00815b392f23c364de2274dba73@o4509754720059392.ingest.de.sentry.io/4511121377067088"}
+{"type":"event"}
+${JSON.stringify({
+    event_id: crypto.randomUUID().replace(/-/g, ''),
+    timestamp: Date.now() / 1000,
+    platform: 'javascript',
+    level: 'error',
+    release: 'markup@1.0.0',
+    environment: 'production',
+    tags: { product: 'markup', component: context.component || 'content' },
+    exception: { values: [{ type: error?.name || 'Error', value: error?.message || String(error) }] }
+  })}`;
+  fetch('https://o4509754720059392.ingest.de.sentry.io/api/4511121377067088/envelope/', {
+    method: 'POST',
+    body: envelope,
+  }).catch(() => {});
+}
+
+window.addEventListener('error', (e) => reportErrorToSentry(e.error || e, { component: 'content' }));
+window.addEventListener('unhandledrejection', (e) => reportErrorToSentry(e.reason || e, { component: 'content' }));
+
+// MarkUp Content Script — Orchestrator
+// Creates overlay, wires events, manages lifecycle. Loaded last after all modules.
 
 (function () {
   'use strict';
@@ -7,26 +30,13 @@
   // Prevent double-injection
   if (document.getElementById('markup-overlay')) return;
 
+  var ns = window.__markup = window.__markup || {};
+
   // ---------------------------------------------------------------------------
-  // State
+  // Constants
   // ---------------------------------------------------------------------------
 
-  const STATE = {
-    tool: 'draw',           // draw | arrow | rect | highlight | text | pin | stamp | eraser | crop
-    color: '#DC2626',
-    lineWidth: 3,
-    pinCounter: 1,
-    stampType: 'checkmark',   // checkmark | cross | question | star
-    isDrawing: false,
-    startX: 0,
-    startY: 0,
-    annotations: [],        // { type, element, data }
-    undoStack: [],
-    currentPath: null,
-    toolbarDrag: { active: false, offsetX: 0, offsetY: 0 },
-  };
-
-  const COLORS = [
+  var COLORS = [
     { value: '#DC2626', label: 'Red' },
     { value: '#F97316', label: 'Orange' },
     { value: '#EAB308', label: 'Yellow' },
@@ -37,428 +47,192 @@
     { value: '#FFFFFF', label: 'White' },
     { value: '#000000', label: 'Black' },
   ];
+  ns.COLORS = COLORS;
 
   // ---------------------------------------------------------------------------
-  // Overlay container (sits on top of the page, full viewport, fixed)
+  // State
   // ---------------------------------------------------------------------------
 
-  const overlay = document.createElement('div');
-  overlay.id = 'markup-overlay';
-  document.body.appendChild(overlay);
-
-  // SVG layer for arrows/rects, canvas layer for freehand
-  const canvas = document.createElement('canvas');
-  canvas.id = 'markup-canvas';
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  overlay.appendChild(canvas);
-
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-
-  // SVG layer for shape previews and placed shapes
-  const svgLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svgLayer.id = 'markup-svg';
-  svgLayer.setAttribute('width', window.innerWidth);
-  svgLayer.setAttribute('height', window.innerHeight);
-  overlay.appendChild(svgLayer);
-
-  // HTML layer for text notes, pins, toolbar
-  const htmlLayer = document.createElement('div');
-  htmlLayer.id = 'markup-html';
-  overlay.appendChild(htmlLayer);
+  var STATE = {
+    tool: 'draw',
+    color: '#DC2626',
+    lineWidth: 3,
+    pinCounter: 1,
+    stampType: 'checkmark',
+    isDrawing: false,
+    startX: 0,
+    startY: 0,
+    annotations: [],
+    undoStack: [],
+    currentPath: null,
+    toolbarDrag: { active: false, offsetX: 0, offsetY: 0 },
+    compareStep: null,
+    compareAfterImg: null,
+    compareBeforeImg: null,
+    templateMode: null,
+  };
 
   // ---------------------------------------------------------------------------
-  // Toolbar
+  // Listener tracking (Task 2: cleanup on destroy)
   // ---------------------------------------------------------------------------
 
-  const toolbar = document.createElement('div');
-  toolbar.id = 'markup-toolbar';
-  toolbar.innerHTML = buildToolbarHTML();
-  htmlLayer.appendChild(toolbar);
+  var trackedListeners = [];
 
-  // Position toolbar at top-center
-  toolbar.style.top = '12px';
-  toolbar.style.left = Math.max(8, (window.innerWidth - 224) / 2) + 'px';
+  ns.addListener = function (el, event, fn, options) {
+    el.addEventListener(event, fn, options);
+    trackedListeners.push({ el: el, event: event, fn: fn, options: options });
+  };
 
-  // ---------------------------------------------------------------------------
-  // Toolbar HTML builder — radial circular layout
-  // ---------------------------------------------------------------------------
-
-  function buildToolbarHTML() {
-    // Outer ring: 10 tools at 36° intervals, starting at 270° (top)
-    // Inner ring: 6 controls at 60° intervals, starting at 300°
-    return `
-      <!-- Center save / capture button -->
-      <button class="markup-tb-center" id="markup-save" title="Save as PNG">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/></svg>
-      </button>
-
-      <!-- Outer ring: drawing tools -->
-      <button class="markup-tb-ring active" style="--a:270deg" data-tool="draw" title="Pen">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-      </button>
-      <button class="markup-tb-ring" style="--a:306deg" data-tool="arrow" title="Arrow">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="19" x2="19" y2="5"/><polyline points="12 5 19 5 19 12"/></svg>
-      </button>
-      <button class="markup-tb-ring" style="--a:342deg" data-tool="rect" title="Rectangle">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-      </button>
-      <button class="markup-tb-ring" style="--a:18deg" data-tool="highlight" title="Highlighter">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/><rect x="2" y="16" width="20" height="5" rx="1" fill="currentColor" opacity="0.3" stroke="none"/></svg>
-      </button>
-      <button class="markup-tb-ring" style="--a:54deg" data-tool="blur" title="Blur / Redact">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
-      </button>
-      <button class="markup-tb-ring" style="--a:90deg" data-tool="text" title="Text Note">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7V4h16v3"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg>
-      </button>
-      <button class="markup-tb-ring" style="--a:126deg" data-tool="pin" title="Numbered Pin">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="7"/><text x="12" y="14" text-anchor="middle" font-size="10" fill="currentColor" stroke="none">1</text></svg>
-      </button>
-      <button class="markup-tb-ring" style="--a:162deg" data-tool="stamp" title="Stamp">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 21h14"/><rect x="5" y="17" width="14" height="2"/><path d="M10 17v-3h4v3"/><rect x="9" y="5" width="6" height="9" rx="1"/></svg>
-      </button>
-      <button class="markup-tb-ring" style="--a:198deg" data-tool="eraser" title="Eraser">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
-      </button>
-      <button class="markup-tb-ring" style="--a:234deg" data-tool="crop" title="Crop & Save">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2v4"/><path d="M6 6h12v12"/><path d="M18 22v-4"/><path d="M2 6h4"/><path d="M22 18h-4"/></svg>
-      </button>
-
-      <!-- Inner ring: controls -->
-      <button class="markup-tb-inner" style="--a:300deg" id="markup-color-toggle" title="Color">
-        <span class="markup-tb-color-swatch" id="markup-color-swatch" style="background:${STATE.color}"></span>
-      </button>
-      <button class="markup-tb-inner" style="--a:0deg" id="markup-width-toggle" title="Stroke width">
-        <span class="markup-tb-width-swatch" id="markup-width-swatch"></span>
-      </button>
-      <button class="markup-tb-inner" style="--a:60deg" id="markup-undo" title="Undo (Ctrl+Z)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-      </button>
-      <button class="markup-tb-inner" style="--a:120deg" id="markup-clear" title="Clear all">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-      </button>
-      <button class="markup-tb-inner" style="--a:180deg" id="markup-copy" title="Copy to clipboard">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-      </button>
-      <button class="markup-tb-inner" style="--a:240deg" id="markup-export-notes" title="Export notes">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-      </button>
-
-      <!-- Close button at edge -->
-      <button class="markup-tb-close-btn" id="markup-close" title="Close (ESC)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-
-      <!-- Color panel (collapsible) -->
-      <div class="markup-tb-color-panel" id="markup-color-panel">
-        ${COLORS.map(c => `<button class="markup-color-btn${c.value === STATE.color ? ' active' : ''}" data-color="${c.value}" style="background:${c.value};${c.value === '#FFFFFF' || c.value === '#000000' ? 'border-color:#555;' : ''}" title="${c.label}"></button>`).join('')}
-        <label class="markup-color-custom" title="Custom color">
-          <input type="color" id="markup-custom-color" value="${STATE.color}" style="opacity:0;position:absolute;width:0;height:0;">
-          <span style="display:flex;width:22px;height:22px;border-radius:50%;background:conic-gradient(red,yellow,lime,aqua,blue,magenta,red);border:2px solid transparent;cursor:pointer;"></span>
-        </label>
-      </div>
-
-      <!-- Width panel (collapsible) -->
-      <div class="markup-tb-width-panel" id="markup-width-panel">
-        <button class="markup-tb-width-opt${STATE.lineWidth <= 2 ? ' active' : ''}" data-width="2" title="Thin">
-          <svg width="24" height="6" viewBox="0 0 24 6"><line x1="2" y1="3" x2="22" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        </button>
-        <button class="markup-tb-width-opt${STATE.lineWidth > 2 && STATE.lineWidth <= 5 ? ' active' : ''}" data-width="4" title="Medium">
-          <svg width="24" height="8" viewBox="0 0 24 8"><line x1="2" y1="4" x2="22" y2="4" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
-        </button>
-        <button class="markup-tb-width-opt${STATE.lineWidth > 5 ? ' active' : ''}" data-width="8" title="Thick">
-          <svg width="24" height="12" viewBox="0 0 24 12"><line x1="2" y1="6" x2="22" y2="6" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></svg>
-        </button>
-      </div>
-    `;
+  function removeAllListeners() {
+    for (var i = 0; i < trackedListeners.length; i++) {
+      var l = trackedListeners[i];
+      l.el.removeEventListener(l.event, l.fn, l.options);
+    }
+    trackedListeners.length = 0;
   }
 
   // ---------------------------------------------------------------------------
-  // Width swatch updater
+  // Overlay container (full viewport, fixed)
   // ---------------------------------------------------------------------------
 
-  function updateWidthSwatch() {
-    const swatch = document.getElementById('markup-width-swatch');
-    if (swatch) swatch.style.height = Math.max(2, STATE.lineWidth) + 'px';
-  }
-  updateWidthSwatch();
+  var overlay, canvas, ctx, svgLayer, htmlLayer, toolbar;
 
-  // ---------------------------------------------------------------------------
-  // Toolbar interactions
-  // ---------------------------------------------------------------------------
+  try {
+    overlay = document.createElement('div');
+    overlay.id = 'markup-overlay';
+    document.body.appendChild(overlay);
 
-  // Tool selection + color/width from panels
-  toolbar.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-tool]');
-    if (btn) {
-      STATE.tool = btn.dataset.tool;
-      toolbar.querySelectorAll('.markup-tb-ring[data-tool]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      updateCursor();
-      // Show/hide stamp picker
-      if (STATE.tool === 'stamp') showStampPicker();
-      else hideStampPicker();
+    canvas = document.createElement('canvas');
+    canvas.id = 'markup-canvas';
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    overlay.appendChild(canvas);
+
+    ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) throw new Error('Canvas 2D context unavailable');
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    svgLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svgLayer.id = 'markup-svg';
+    svgLayer.setAttribute('width', window.innerWidth);
+    svgLayer.setAttribute('height', window.innerHeight);
+    overlay.appendChild(svgLayer);
+
+    htmlLayer = document.createElement('div');
+    htmlLayer.id = 'markup-html';
+    overlay.appendChild(htmlLayer);
+
+    toolbar = document.createElement('div');
+    toolbar.id = 'markup-toolbar';
+    toolbar.innerHTML = ns.buildToolbarHTML(STATE);
+    htmlLayer.appendChild(toolbar);
+
+    toolbar.style.top = '12px';
+    toolbar.style.left = Math.max(8, (window.innerWidth - 224) / 2) + 'px';
+
+    // Feature strip
+    var featureStrip = document.createElement('div');
+    featureStrip.id = 'markup-features';
+    featureStrip.className = 'markup-tb-features';
+    featureStrip.innerHTML = ns.buildFeatureStripHTML();
+    toolbar.appendChild(featureStrip);
+  } catch (err) {
+    // Error boundary: if overlay creation fails, show toast and abort
+    if (window.__markupCapture) {
+      window.__markupCapture.showToast('MarkUp failed to initialize: ' + err.message, 5000);
     }
-
-    const colorBtn = e.target.closest('[data-color]');
-    if (colorBtn) {
-      STATE.color = colorBtn.dataset.color;
-      toolbar.querySelectorAll('.markup-color-btn').forEach(b => b.classList.remove('active'));
-      colorBtn.classList.add('active');
-      document.getElementById('markup-color-swatch').style.background = STATE.color;
-      document.getElementById('markup-color-panel').classList.remove('open');
-    }
-
-    const widthBtn = e.target.closest('[data-width]');
-    if (widthBtn) {
-      STATE.lineWidth = parseInt(widthBtn.dataset.width, 10);
-      toolbar.querySelectorAll('.markup-tb-width-opt').forEach(b => b.classList.remove('active'));
-      widthBtn.classList.add('active');
-      updateWidthSwatch();
-      document.getElementById('markup-width-panel').classList.remove('open');
-    }
-  });
-
-  // Color panel toggle
-  document.getElementById('markup-color-toggle').addEventListener('click', (e) => {
-    e.stopPropagation();
-    const panel = document.getElementById('markup-color-panel');
-    const widthPanel = document.getElementById('markup-width-panel');
-    widthPanel.classList.remove('open');
-    panel.classList.toggle('open');
-  });
-
-  // Width panel toggle
-  document.getElementById('markup-width-toggle').addEventListener('click', (e) => {
-    e.stopPropagation();
-    const panel = document.getElementById('markup-width-panel');
-    const colorPanel = document.getElementById('markup-color-panel');
-    colorPanel.classList.remove('open');
-    panel.classList.toggle('open');
-  });
-
-  // Close panels on outside click
-  document.addEventListener('mousedown', (e) => {
-    if (!e.target.closest('#markup-color-toggle') && !e.target.closest('#markup-color-panel')) {
-      const cp = document.getElementById('markup-color-panel');
-      if (cp) cp.classList.remove('open');
-    }
-    if (!e.target.closest('#markup-width-toggle') && !e.target.closest('#markup-width-panel')) {
-      const wp = document.getElementById('markup-width-panel');
-      if (wp) wp.classList.remove('open');
-    }
-  });
-
-  // Custom color picker
-  const customColorInput = toolbar.querySelector('#markup-custom-color');
-  if (customColorInput) {
-    customColorInput.addEventListener('input', (e) => {
-      STATE.color = e.target.value;
-      toolbar.querySelectorAll('.markup-color-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById('markup-color-swatch').style.background = STATE.color;
-    });
-  }
-
-  // Action buttons
-  toolbar.querySelector('#markup-undo').addEventListener('click', undo);
-  toolbar.querySelector('#markup-clear').addEventListener('click', clearAll);
-  toolbar.querySelector('#markup-save').addEventListener('click', () => window.__markupCapture?.savePNG());
-  toolbar.querySelector('#markup-copy').addEventListener('click', () => window.__markupCapture?.copyToClipboard());
-  toolbar.querySelector('#markup-export-notes').addEventListener('click', () => window.__markupCapture?.exportNotes(STATE.annotations));
-  toolbar.querySelector('#markup-close').addEventListener('click', destroyOverlay);
-
-  // ---------------------------------------------------------------------------
-  // Stamp picker
-  // ---------------------------------------------------------------------------
-
-  const stampPicker = document.createElement('div');
-  stampPicker.id = 'markup-stamp-picker';
-  stampPicker.className = 'markup-stamp-picker';
-  stampPicker.innerHTML = `
-    <button class="markup-stamp-opt active" data-stamp="checkmark" title="Checkmark"><span style="color:#16A34A">\u2713</span></button>
-    <button class="markup-stamp-opt" data-stamp="cross" title="Cross"><span style="color:#DC2626">\u2717</span></button>
-    <button class="markup-stamp-opt" data-stamp="question" title="Question"><span style="color:#F97316">?</span></button>
-    <button class="markup-stamp-opt" data-stamp="star" title="Star"><span style="color:#EAB308">\u2605</span></button>
-  `;
-  stampPicker.style.display = 'none';
-  htmlLayer.appendChild(stampPicker);
-
-  stampPicker.addEventListener('click', (e) => {
-    const opt = e.target.closest('[data-stamp]');
-    if (!opt) return;
-    e.stopPropagation();
-    STATE.stampType = opt.dataset.stamp;
-    stampPicker.querySelectorAll('.markup-stamp-opt').forEach(b => b.classList.remove('active'));
-    opt.classList.add('active');
-  });
-
-  function showStampPicker() {
-    const stampBtn = toolbar.querySelector('[data-tool="stamp"]');
-    if (!stampBtn) return;
-    const rect = stampBtn.getBoundingClientRect();
-    stampPicker.style.left = rect.left + 'px';
-    stampPicker.style.top = (rect.bottom + 6) + 'px';
-    stampPicker.style.display = 'flex';
-  }
-
-  function hideStampPicker() {
-    stampPicker.style.display = 'none';
+    if (overlay && overlay.parentNode) overlay.remove();
+    return;
   }
 
   // ---------------------------------------------------------------------------
-  // Toolbar dragging — grab from any dark background area
+  // Expose globals for modules and capture.js
   // ---------------------------------------------------------------------------
 
-  toolbar.addEventListener('mousedown', (e) => {
-    // Only drag if clicking on the dark background (not buttons/inputs/panels)
-    if (e.target.closest('button, input, label, .markup-tb-color-panel, .markup-tb-width-panel')) return;
-    STATE.toolbarDrag.active = true;
-    const rect = toolbar.getBoundingClientRect();
-    STATE.toolbarDrag.offsetX = e.clientX - rect.left;
-    STATE.toolbarDrag.offsetY = e.clientY - rect.top;
-    toolbar.style.cursor = 'grabbing';
-    e.preventDefault();
-  });
-
-  document.addEventListener('mousemove', (e) => {
-    if (!STATE.toolbarDrag.active) return;
-    const tbRect = toolbar.getBoundingClientRect();
-    let newLeft = e.clientX - STATE.toolbarDrag.offsetX;
-    let newTop = e.clientY - STATE.toolbarDrag.offsetY;
-    // Clamp: at least 40px of toolbar must remain on-screen
-    newLeft = Math.max(40 - tbRect.width, Math.min(window.innerWidth - 40, newLeft));
-    newTop = Math.max(0, Math.min(window.innerHeight - 40, newTop));
-    toolbar.style.left = newLeft + 'px';
-    toolbar.style.top = newTop + 'px';
-  });
-
-  document.addEventListener('mouseup', () => {
-    if (STATE.toolbarDrag.active) {
-      toolbar.style.cursor = '';
-    }
-    STATE.toolbarDrag.active = false;
-  });
-
-  // Snap toolbar back into visible area (used on resize)
-  function clampToolbarPosition() {
-    const tbRect = toolbar.getBoundingClientRect();
-    let newLeft = tbRect.left;
-    let newTop = tbRect.top;
-    newLeft = Math.max(40 - tbRect.width, Math.min(window.innerWidth - 40, newLeft));
-    newTop = Math.max(0, Math.min(window.innerHeight - 40, newTop));
-    toolbar.style.left = newLeft + 'px';
-    toolbar.style.top = newTop + 'px';
-  }
+  window.__markupState = STATE;
+  window.__markupOverlay = overlay;
+  window.__markupCanvas = canvas;
+  window.__markupCtx = ctx;
+  window.__markupSvgLayer = svgLayer;
+  window.__markupHtmlLayer = htmlLayer;
+  window.__markupToolbar = toolbar;
 
   // ---------------------------------------------------------------------------
-  // Canvas / Drawing — pointer events on the overlay
+  // Initialize toolbar (wires all toolbar event handlers)
   // ---------------------------------------------------------------------------
 
-  function getPos(e) {
+  ns.initToolbar();
+  ns.updateWidthSwatch();
+
+  // ---------------------------------------------------------------------------
+  // Pointer helpers
+  // ---------------------------------------------------------------------------
+
+  ns.getPos = function (e) {
     if (e.touches && e.touches.length > 0) {
       return { x: e.touches[0].clientX, y: e.touches[0].clientY };
     }
     return { x: e.clientX, y: e.clientY };
-  }
+  };
 
   function isOnToolbar(e) {
     return toolbar.contains(e.target);
   }
 
-  // Preview element for arrows / rects while dragging
-  let previewEl = null;
+  // ---------------------------------------------------------------------------
+  // Pointer event routing
+  // ---------------------------------------------------------------------------
 
-  // --- POINTER DOWN ---
   function onPointerDown(e) {
     if (isOnToolbar(e)) return;
-    if (e.target.closest('.markup-text-note, .markup-fmt-bar, .markup-text-input, .markup-text-label, .markup-text-input-wrap, .markup-stamp-picker')) return;
+    if (e.target.closest('.markup-text-note, .markup-fmt-bar, .markup-text-input, .markup-text-label, .markup-text-input-wrap, .markup-stamp-picker, .markup-template-panel, #markup-compare-banner, #markup-compare-view, #markup-share-modal')) return;
 
-    const pos = getPos(e);
+    var pos = ns.getPos(e);
+
+    if (STATE.templateMode) {
+      ns.placeTemplateAnnotation(pos, STATE.templateMode);
+      return;
+    }
 
     switch (STATE.tool) {
-      case 'draw':
-        startFreehand(pos);
-        break;
-      case 'arrow':
-      case 'rect':
-      case 'highlight':
-      case 'blur':
-      case 'crop':
+      case 'draw': ns.startFreehand(pos); break;
+      case 'arrow': case 'rect': case 'highlight': case 'blur': case 'crop':
         STATE.isDrawing = true;
         STATE.startX = pos.x;
         STATE.startY = pos.y;
         break;
-      case 'text':
-        placeTextNote(pos);
-        break;
-      case 'pin':
-        placePin(pos);
-        break;
-      case 'stamp':
-        placeStamp(pos);
-        break;
-      case 'eraser':
-        tryErase(e);
-        break;
+      case 'text': ns.placeTextNote(pos); break;
+      case 'pin': ns.placePin(pos); break;
+      case 'stamp': ns.placeStamp(pos); break;
+      case 'eraser': ns.tryErase(e); break;
     }
   }
 
-  // --- POINTER MOVE ---
   function onPointerMove(e) {
     if (!STATE.isDrawing) return;
-    const pos = getPos(e);
-
+    var pos = ns.getPos(e);
     switch (STATE.tool) {
-      case 'draw':
-        continueFreehand(pos);
-        break;
-      case 'arrow':
-        previewArrow(pos);
-        break;
-      case 'rect':
-        previewRect(pos);
-        break;
-      case 'highlight':
-        previewHighlight(pos);
-        break;
-      case 'blur':
-        previewBlur(pos);
-        break;
-      case 'crop':
-        previewCrop(pos);
-        break;
+      case 'draw': ns.continueFreehand(pos); break;
+      case 'arrow': ns.previewArrow(pos); break;
+      case 'rect': ns.previewRect(pos); break;
+      case 'highlight': ns.previewHighlight(pos); break;
+      case 'blur': ns.previewBlur(pos); break;
+      case 'crop': ns.previewCrop(pos); break;
     }
   }
 
-  // --- POINTER UP ---
   function onPointerUp(e) {
     if (!STATE.isDrawing) return;
-    const pos = getPos(e);
-
+    var pos = ns.getPos(e);
     switch (STATE.tool) {
-      case 'draw':
-        endFreehand();
-        break;
-      case 'arrow':
-        placeArrow(pos);
-        break;
-      case 'rect':
-        placeRect(pos);
-        break;
-      case 'highlight':
-        placeHighlight(pos);
-        break;
-      case 'blur':
-        placeBlur(pos);
-        break;
-      case 'crop':
-        finishCrop(pos);
-        break;
+      case 'draw': ns.endFreehand(); break;
+      case 'arrow': ns.placeArrow(pos); break;
+      case 'rect': ns.placeRect(pos); break;
+      case 'highlight': ns.placeHighlight(pos); break;
+      case 'blur': ns.placeBlur(pos); break;
+      case 'crop': ns.finishCrop(pos); break;
     }
-
     STATE.isDrawing = false;
   }
 
@@ -468,685 +242,60 @@
   overlay.addEventListener('mouseup', onPointerUp);
 
   // Touch
-  overlay.addEventListener('touchstart', (e) => { e.preventDefault(); onPointerDown(e); }, { passive: false });
-  overlay.addEventListener('touchmove', (e) => { e.preventDefault(); onPointerMove(e); }, { passive: false });
-  overlay.addEventListener('touchend', (e) => { onPointerUp(e); }, { passive: false });
-
-  // ---------------------------------------------------------------------------
-  // Tool: Freehand draw
-  // ---------------------------------------------------------------------------
-
-  function startFreehand(pos) {
-    STATE.isDrawing = true;
-    STATE.currentPath = {
-      points: [pos],
-      color: STATE.color,
-      width: STATE.lineWidth,
-    };
-    ctx.strokeStyle = STATE.color;
-    ctx.lineWidth = STATE.lineWidth;
-    ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
-  }
-
-  function continueFreehand(pos) {
-    if (!STATE.currentPath) return;
-    STATE.currentPath.points.push(pos);
-    ctx.lineTo(pos.x, pos.y);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
-  }
-
-  function endFreehand() {
-    if (!STATE.currentPath && !STATE.isDrawing) return;
-    if (STATE.currentPath && STATE.currentPath.points.length > 1) {
-      const pathData = { ...STATE.currentPath };
-      STATE.annotations.push({
-        type: 'draw',
-        element: null,
-        data: pathData,
-      });
-      STATE.undoStack = [];
-    }
-    STATE.currentPath = null;
-  }
-
-  function redrawCanvas() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (const ann of STATE.annotations) {
-      if (ann.type === 'draw') {
-        const d = ann.data;
-        ctx.strokeStyle = d.color;
-        ctx.lineWidth = d.width;
-        ctx.beginPath();
-        ctx.moveTo(d.points[0].x, d.points[0].y);
-        for (let i = 1; i < d.points.length; i++) {
-          ctx.lineTo(d.points[i].x, d.points[i].y);
-        }
-        ctx.stroke();
-      }
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Tool: Arrow
-  // ---------------------------------------------------------------------------
-
-  function previewArrow(pos) {
-    if (previewEl) previewEl.remove();
-    previewEl = createSVGArrow(STATE.startX, STATE.startY, pos.x, pos.y, STATE.color, STATE.lineWidth);
-    previewEl.classList.add('markup-preview');
-    svgLayer.appendChild(previewEl);
-  }
-
-  function placeArrow(pos) {
-    if (previewEl) previewEl.remove();
-    previewEl = null;
-
-    const dx = pos.x - STATE.startX;
-    const dy = pos.y - STATE.startY;
-    if (Math.sqrt(dx * dx + dy * dy) < 5) return;
-
-    const el = createSVGArrow(STATE.startX, STATE.startY, pos.x, pos.y, STATE.color, STATE.lineWidth);
-    el.classList.add('markup-annotation');
-    svgLayer.appendChild(el);
-
-    STATE.annotations.push({
-      type: 'arrow',
-      element: el,
-      data: { x1: STATE.startX, y1: STATE.startY, x2: pos.x, y2: pos.y, color: STATE.color, width: STATE.lineWidth },
-    });
-    STATE.undoStack = [];
-  }
-
-  function createSVGArrow(x1, y1, x2, y2, color, width) {
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-
-    const markerId = 'markup-ah-' + Date.now() + Math.random().toString(36).slice(2, 6);
-    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-    marker.setAttribute('id', markerId);
-    marker.setAttribute('markerWidth', '10');
-    marker.setAttribute('markerHeight', '7');
-    marker.setAttribute('refX', '10');
-    marker.setAttribute('refY', '3.5');
-    marker.setAttribute('orient', 'auto');
-    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-    polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
-    polygon.setAttribute('fill', color);
-    marker.appendChild(polygon);
-    defs.appendChild(marker);
-    g.appendChild(defs);
-
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('x1', x1);
-    line.setAttribute('y1', y1);
-    line.setAttribute('x2', x2);
-    line.setAttribute('y2', y2);
-    line.setAttribute('stroke', color);
-    line.setAttribute('stroke-width', width);
-    line.setAttribute('marker-end', `url(#${markerId})`);
-    line.style.filter = 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))';
-    g.appendChild(line);
-
-    return g;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Tool: Rectangle
-  // ---------------------------------------------------------------------------
-
-  function previewRect(pos) {
-    if (previewEl) previewEl.remove();
-    previewEl = createSVGRect(STATE.startX, STATE.startY, pos.x, pos.y, STATE.color, STATE.lineWidth);
-    previewEl.classList.add('markup-preview');
-    svgLayer.appendChild(previewEl);
-  }
-
-  function placeRect(pos) {
-    if (previewEl) previewEl.remove();
-    previewEl = null;
-
-    const w = Math.abs(pos.x - STATE.startX);
-    const h = Math.abs(pos.y - STATE.startY);
-    if (w < 5 && h < 5) return;
-
-    const el = createSVGRect(STATE.startX, STATE.startY, pos.x, pos.y, STATE.color, STATE.lineWidth);
-    el.classList.add('markup-annotation');
-    svgLayer.appendChild(el);
-
-    STATE.annotations.push({
-      type: 'rect',
-      element: el,
-      data: { x1: STATE.startX, y1: STATE.startY, x2: pos.x, y2: pos.y, color: STATE.color, width: STATE.lineWidth },
-    });
-    STATE.undoStack = [];
-  }
-
-  function createSVGRect(x1, y1, x2, y2, color, width) {
-    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    const rx = Math.min(x1, x2);
-    const ry = Math.min(y1, y2);
-    const rw = Math.abs(x2 - x1);
-    const rh = Math.abs(y2 - y1);
-    rect.setAttribute('x', rx);
-    rect.setAttribute('y', ry);
-    rect.setAttribute('width', rw);
-    rect.setAttribute('height', rh);
-    rect.setAttribute('rx', '3');
-    rect.setAttribute('stroke', color);
-    rect.setAttribute('stroke-width', width);
-    rect.setAttribute('fill', color.replace(')', ', 0.08)').replace('rgb', 'rgba').replace('#', ''));
-    rect.setAttribute('fill', hexToRgba(color, 0.08));
-    rect.style.filter = 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))';
-    return rect;
-  }
-
-  function hexToRgba(hex, alpha) {
-    const c = hex.replace('#', '');
-    const r = parseInt(c.substring(0, 2), 16);
-    const g = parseInt(c.substring(2, 4), 16);
-    const b = parseInt(c.substring(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Tool: Highlighter
-  // ---------------------------------------------------------------------------
-
-  function previewHighlight(pos) {
-    if (previewEl) previewEl.remove();
-    previewEl = createSVGHighlight(STATE.startX, STATE.startY, pos.x, pos.y, STATE.color);
-    previewEl.classList.add('markup-preview');
-    svgLayer.appendChild(previewEl);
-  }
-
-  function placeHighlight(pos) {
-    if (previewEl) previewEl.remove();
-    previewEl = null;
-    const dx = Math.abs(pos.x - STATE.startX);
-    const dy = Math.abs(pos.y - STATE.startY);
-    if (dx < 5 && dy < 5) return;
-
-    const el = createSVGHighlight(STATE.startX, STATE.startY, pos.x, pos.y, STATE.color);
-    el.classList.add('markup-annotation');
-    svgLayer.appendChild(el);
-
-    STATE.annotations.push({
-      type: 'highlight',
-      element: el,
-      data: { x1: STATE.startX, y1: STATE.startY, x2: pos.x, y2: pos.y, color: STATE.color },
-    });
-    STATE.undoStack = [];
-  }
-
-  function createSVGHighlight(x1, y1, x2, y2, color) {
-    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    const rx = Math.min(x1, x2);
-    const ry = Math.min(y1, y2);
-    const rw = Math.abs(x2 - x1);
-    const rh = Math.abs(y2 - y1);
-    rect.setAttribute('x', rx);
-    rect.setAttribute('y', ry);
-    rect.setAttribute('width', rw);
-    rect.setAttribute('height', rh);
-    rect.setAttribute('rx', '2');
-    rect.setAttribute('stroke', 'none');
-    rect.setAttribute('fill', hexToRgba(color, 0.3));
-    rect.style.mixBlendMode = 'multiply';
-    return rect;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Tool: Blur / Redact
-  // ---------------------------------------------------------------------------
-
-  function previewBlur(pos) {
-    if (previewEl) previewEl.remove();
-    previewEl = createBlurOverlay(STATE.startX, STATE.startY, pos.x, pos.y);
-    previewEl.classList.add('markup-preview');
-    htmlLayer.appendChild(previewEl);
-  }
-
-  function placeBlur(pos) {
-    if (previewEl) previewEl.remove();
-    previewEl = null;
-    const dx = Math.abs(pos.x - STATE.startX);
-    const dy = Math.abs(pos.y - STATE.startY);
-    if (dx < 10 && dy < 10) return;
-
-    const el = createBlurOverlay(STATE.startX, STATE.startY, pos.x, pos.y);
-    htmlLayer.appendChild(el);
-
-    STATE.annotations.push({
-      type: 'blur',
-      element: el,
-      data: { x1: STATE.startX, y1: STATE.startY, x2: pos.x, y2: pos.y },
-    });
-    STATE.undoStack = [];
-  }
-
-  function createBlurOverlay(x1, y1, x2, y2) {
-    const div = document.createElement('div');
-    div.className = 'markup-blur-region';
-    div.style.position = 'absolute';
-    div.style.left = Math.min(x1, x2) + 'px';
-    div.style.top = Math.min(y1, y2) + 'px';
-    div.style.width = Math.abs(x2 - x1) + 'px';
-    div.style.height = Math.abs(y2 - y1) + 'px';
-    div.style.backdropFilter = 'blur(12px)';
-    div.style.webkitBackdropFilter = 'blur(12px)';
-    div.style.background = 'rgba(0, 0, 0, 0.15)';
-    div.style.borderRadius = '4px';
-    div.style.border = '1px solid rgba(255, 255, 255, 0.1)';
-    div.style.pointerEvents = 'auto';
-    div.style.zIndex = '2147483645';
-    return div;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Tool: Text note
-  // ---------------------------------------------------------------------------
-
-  function placeTextNote(pos) {
-    const noteNum = STATE.annotations.filter(a => a.type === 'text').length + 1;
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'markup-text-note';
-    wrapper.style.left = pos.x + 'px';
-    wrapper.style.top = pos.y + 'px';
-
-    const badge = document.createElement('span');
-    badge.className = 'markup-text-badge';
-    badge.textContent = noteNum;
-    badge.style.background = STATE.color;
-
-    const fmt = { bold: false, italic: false, underline: false, size: 'M' };
-    const SIZES = { S: 11, M: 13, L: 17 };
-
-    const fmtBar = document.createElement('div');
-    fmtBar.className = 'markup-fmt-bar';
-    fmtBar.innerHTML = `
-      <button class="markup-fmt-btn" data-fmt="bold" title="Bold (Ctrl+B)"><strong>B</strong></button>
-      <button class="markup-fmt-btn" data-fmt="italic" title="Italic (Ctrl+I)"><em>I</em></button>
-      <button class="markup-fmt-btn" data-fmt="underline" title="Underline (Ctrl+U)"><span style="text-decoration:underline">U</span></button>
-      <span class="markup-fmt-divider"></span>
-      <button class="markup-fmt-btn markup-fmt-size" data-fmt="S" title="Small">S</button>
-      <button class="markup-fmt-btn markup-fmt-size active" data-fmt="M" title="Medium">M</button>
-      <button class="markup-fmt-btn markup-fmt-size" data-fmt="L" title="Large">L</button>
-      <span class="markup-fmt-divider"></span>
-      <span class="markup-fmt-color" style="background:${STATE.color}" title="Text color"></span>
-      <button class="markup-fmt-btn markup-fmt-confirm" data-fmt="confirm" title="Done (Ctrl+Enter)">&#10003;</button>
-    `;
-
-    const input = document.createElement('textarea');
-    input.className = 'markup-text-input';
-    input.placeholder = 'Type a note...';
-    input.style.borderColor = STATE.color;
-    input.rows = 1;
-    input.autocomplete = 'off';
-    input.spellcheck = false;
-    input.setAttribute('data-form-type', 'other');
-
-    function autoResize() {
-      input.style.height = 'auto';
-      input.style.height = Math.min(input.scrollHeight, 200) + 'px';
-    }
-    input.addEventListener('input', autoResize);
-
-    function applyFormat() {
-      input.style.fontWeight = fmt.bold ? '700' : '400';
-      input.style.fontStyle = fmt.italic ? 'italic' : 'normal';
-      input.style.textDecoration = fmt.underline ? 'underline' : 'none';
-      input.style.fontSize = SIZES[fmt.size] + 'px';
-      input.style.color = STATE.color === '#DC2626' ? '#fff' : STATE.color;
-      fmtBar.querySelector('[data-fmt="bold"]').classList.toggle('active', fmt.bold);
-      fmtBar.querySelector('[data-fmt="italic"]').classList.toggle('active', fmt.italic);
-      fmtBar.querySelector('[data-fmt="underline"]').classList.toggle('active', fmt.underline);
-      fmtBar.querySelectorAll('.markup-fmt-size').forEach(b => {
-        b.classList.toggle('active', b.dataset.fmt === fmt.size);
-      });
-      autoResize();
-    }
-
-    fmtBar.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-fmt]');
-      if (!btn) return;
-      e.stopPropagation();
-      const action = btn.dataset.fmt;
-      if (action === 'bold') fmt.bold = !fmt.bold;
-      else if (action === 'italic') fmt.italic = !fmt.italic;
-      else if (action === 'underline') fmt.underline = !fmt.underline;
-      else if (action === 'confirm') { finalize(); return; }
-      else if (action === 'S' || action === 'M' || action === 'L') fmt.size = action;
-      applyFormat();
-      input.focus();
-    });
-    fmtBar.addEventListener('mousedown', (e) => e.preventDefault());
-
-    const inputWrap = document.createElement('div');
-    inputWrap.className = 'markup-text-input-wrap';
-    inputWrap.appendChild(fmtBar);
-    inputWrap.appendChild(input);
-
-    wrapper.appendChild(badge);
-    wrapper.appendChild(inputWrap);
-    htmlLayer.appendChild(wrapper);
-
-    applyFormat();
-    setTimeout(() => input.focus(), 50);
-
-    let finalized = false;
-    const finalize = () => {
-      if (finalized) return;
-      finalized = true;
-      if (!input.value.trim()) {
-        if (wrapper.parentNode) wrapper.remove();
-        return;
-      }
-      const textColor = STATE.color === '#DC2626' ? '#f0f0f0' : STATE.color;
-      const label = document.createElement('div');
-      label.className = 'markup-text-label';
-      label.style.fontWeight = fmt.bold ? '700' : '400';
-      label.style.fontStyle = fmt.italic ? 'italic' : 'normal';
-      label.style.textDecoration = fmt.underline ? 'underline' : 'none';
-      label.style.fontSize = SIZES[fmt.size] + 'px';
-      label.style.color = textColor;
-      label.textContent = input.value;
-      if (inputWrap.parentNode) inputWrap.remove();
-      wrapper.appendChild(label);
-
-      label.addEventListener('dblclick', (e) => {
-        e.stopPropagation();
-        label.remove();
-        finalized = false;
-        inputWrap.querySelector('textarea') || inputWrap.appendChild(input);
-        wrapper.appendChild(inputWrap);
-        input.value = label.textContent;
-        applyFormat();
-        setTimeout(() => input.focus(), 50);
-      });
-
-      let dragStart = null;
-      wrapper.style.cursor = 'grab';
-      wrapper.addEventListener('mousedown', (e) => {
-        if (e.target.tagName === 'TEXTAREA' || e.target.closest('.markup-fmt-bar')) return;
-        dragStart = { x: e.clientX - wrapper.offsetLeft, y: e.clientY - wrapper.offsetTop };
-        wrapper.style.cursor = 'grabbing';
-        e.preventDefault();
-      });
-      const onDragMove = (e) => {
-        if (!dragStart) return;
-        wrapper.style.left = (e.clientX - dragStart.x) + 'px';
-        wrapper.style.top = (e.clientY - dragStart.y) + 'px';
-      };
-      const onDragEnd = () => { dragStart = null; wrapper.style.cursor = 'grab'; };
-      document.addEventListener('mousemove', onDragMove);
-      document.addEventListener('mouseup', onDragEnd);
-
-      STATE.annotations.push({
-        type: 'text',
-        element: wrapper,
-        data: { x: pos.x, y: pos.y, text: input.value, num: noteNum, color: STATE.color, bold: fmt.bold, italic: fmt.italic, underline: fmt.underline, size: fmt.size },
-      });
-      STATE.undoStack = [];
-    };
-
-    input.addEventListener('keydown', (e) => {
-      e.stopPropagation();
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); finalize(); }
-      if (e.key === 'Escape') { wrapper.remove(); }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'b') { e.preventDefault(); fmt.bold = !fmt.bold; applyFormat(); }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'i') { e.preventDefault(); fmt.italic = !fmt.italic; applyFormat(); }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'u') { e.preventDefault(); fmt.underline = !fmt.underline; applyFormat(); }
-    });
-    input.addEventListener('blur', () => {
-      setTimeout(() => {
-        try {
-          if (!finalized && (!fmtBar.parentNode || !fmtBar.matches(':hover'))) finalize();
-        } catch (_e) {
-          if (!finalized) finalize();
-        }
-      }, 200);
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Tool: Number pin
-  // ---------------------------------------------------------------------------
-
-  function placePin(pos) {
-    const num = STATE.pinCounter++;
-
-    const pin = document.createElement('div');
-    pin.className = 'markup-pin';
-    pin.style.left = (pos.x - 14) + 'px';
-    pin.style.top = (pos.y - 14) + 'px';
-    pin.style.background = STATE.color;
-    pin.textContent = num;
-    htmlLayer.appendChild(pin);
-
-    STATE.annotations.push({
-      type: 'pin',
-      element: pin,
-      data: { x: pos.x, y: pos.y, num, color: STATE.color },
-    });
-    STATE.undoStack = [];
-  }
-
-  // ---------------------------------------------------------------------------
-  // Tool: Stamp
-  // ---------------------------------------------------------------------------
-
-  const STAMPS = {
-    checkmark: { symbol: '\u2713', color: '#16A34A' },
-    cross:     { symbol: '\u2717', color: '#DC2626' },
-    question:  { symbol: '?',      color: '#F97316' },
-    star:      { symbol: '\u2605', color: '#EAB308' },
-  };
-
-  function placeStamp(pos) {
-    const type = STATE.stampType || 'checkmark';
-    const stamp = STAMPS[type];
-    if (!stamp) return;
-
-    const el = document.createElement('div');
-    el.className = 'markup-stamp';
-    el.style.left = (pos.x - 14) + 'px';
-    el.style.top = (pos.y - 14) + 'px';
-    el.style.background = stamp.color;
-    el.textContent = stamp.symbol;
-    htmlLayer.appendChild(el);
-
-    STATE.annotations.push({
-      type: 'stamp',
-      element: el,
-      data: { x: pos.x, y: pos.y, stampType: type, symbol: stamp.symbol, color: stamp.color },
-    });
-    STATE.undoStack = [];
-  }
-
-  // ---------------------------------------------------------------------------
-  // Tool: Crop (region select)
-  // ---------------------------------------------------------------------------
-
-  let cropPreview = null;
-
-  function previewCrop(pos) {
-    if (cropPreview) cropPreview.remove();
-
-    const x = Math.min(STATE.startX, pos.x);
-    const y = Math.min(STATE.startY, pos.y);
-    const w = Math.abs(pos.x - STATE.startX);
-    const h = Math.abs(pos.y - STATE.startY);
-
-    cropPreview = document.createElement('div');
-    cropPreview.className = 'markup-crop-preview';
-    cropPreview.style.left = x + 'px';
-    cropPreview.style.top = y + 'px';
-    cropPreview.style.width = w + 'px';
-    cropPreview.style.height = h + 'px';
-    htmlLayer.appendChild(cropPreview);
-  }
-
-  function finishCrop(pos) {
-    if (cropPreview) {
-      cropPreview.remove();
-      cropPreview = null;
-    }
-
-    const x = Math.min(STATE.startX, pos.x);
-    const y = Math.min(STATE.startY, pos.y);
-    const w = Math.abs(pos.x - STATE.startX);
-    const h = Math.abs(pos.y - STATE.startY);
-
-    if (w < 10 || h < 10) return;
-
-    window.__markupCapture?.saveCrop({ x: x, y: y, width: w, height: h });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Tool: Eraser
-  // ---------------------------------------------------------------------------
-
-  function tryErase(e) {
-    const pos = getPos(e);
-    const threshold = 20;
-
-    for (let i = STATE.annotations.length - 1; i >= 0; i--) {
-      const ann = STATE.annotations[i];
-
-      if (ann.type === 'pin' || ann.type === 'text' || ann.type === 'stamp') {
-        const rect = ann.element.getBoundingClientRect();
-        if (pos.x >= rect.left - 5 && pos.x <= rect.right + 5 &&
-            pos.y >= rect.top - 5 && pos.y <= rect.bottom + 5) {
-          ann.element.remove();
-          STATE.annotations.splice(i, 1);
-          return;
-        }
-      }
-
-      if (ann.type === 'arrow' || ann.type === 'rect') {
-        const bbox = ann.element.getBoundingClientRect();
-        if (pos.x >= bbox.left - threshold && pos.x <= bbox.right + threshold &&
-            pos.y >= bbox.top - threshold && pos.y <= bbox.bottom + threshold) {
-          ann.element.remove();
-          STATE.annotations.splice(i, 1);
-          return;
-        }
-      }
-
-      if (ann.type === 'draw') {
-        for (const pt of ann.data.points) {
-          const dx = pos.x - pt.x;
-          const dy = pos.y - pt.y;
-          if (Math.sqrt(dx * dx + dy * dy) < threshold) {
-            STATE.annotations.splice(i, 1);
-            redrawCanvas();
-            return;
-          }
-        }
-      }
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Undo / Clear
-  // ---------------------------------------------------------------------------
-
-  function undo() {
-    if (STATE.annotations.length === 0) return;
-    const last = STATE.annotations.pop();
-    STATE.undoStack.push(last);
-
-    if (last.element) {
-      last.element.remove();
-    }
-    if (last.type === 'draw') {
-      redrawCanvas();
-    }
-  }
-
-  function clearAll() {
-    for (const ann of STATE.annotations) {
-      if (ann.element) ann.element.remove();
-    }
-    STATE.annotations = [];
-    STATE.undoStack = [];
-    STATE.pinCounter = 1;
-    redrawCanvas();
-    svgLayer.querySelectorAll('.markup-preview, .markup-annotation').forEach(el => el.remove());
-  }
-
-  // ---------------------------------------------------------------------------
-  // Keyboard shortcuts
-  // ---------------------------------------------------------------------------
-
-  function onKeyDown(e) {
-    if (e.target.classList.contains('markup-text-input')) return;
-
-    if (e.key === 'Escape') {
-      destroyOverlay();
-    }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-      e.preventDefault();
-      undo();
-    }
-  }
-
-  document.addEventListener('keydown', onKeyDown);
+  overlay.addEventListener('touchstart', function (e) { e.preventDefault(); onPointerDown(e); }, { passive: false });
+  overlay.addEventListener('touchmove', function (e) { e.preventDefault(); onPointerMove(e); }, { passive: false });
+  overlay.addEventListener('touchend', function (e) { onPointerUp(e); }, { passive: false });
 
   // ---------------------------------------------------------------------------
   // Cursor
   // ---------------------------------------------------------------------------
 
-  function updateCursor() {
-    const cursors = {
-      draw: 'crosshair',
-      arrow: 'crosshair',
-      rect: 'crosshair',
-      highlight: 'crosshair',
-      blur: 'crosshair',
-      text: 'text',
-      pin: 'crosshair',
-      eraser: 'pointer',
-      crop: 'crosshair',
-      stamp: 'crosshair',
-    };
-    overlay.style.cursor = cursors[STATE.tool] || 'default';
-  }
-  updateCursor();
+  var cursors = {
+    draw: 'crosshair', arrow: 'crosshair', rect: 'crosshair', highlight: 'crosshair',
+    blur: 'crosshair', text: 'text', pin: 'crosshair', eraser: 'pointer',
+    crop: 'crosshair', stamp: 'crosshair',
+  };
+
+  ns.updateCursor = function () {
+    overlay.style.cursor = STATE.templateMode ? 'crosshair' : (cursors[STATE.tool] || 'default');
+  };
+  ns.updateCursor();
+
+  // ---------------------------------------------------------------------------
+  // Keyboard
+  // ---------------------------------------------------------------------------
+
+  ns.addListener(document, 'keydown', ns.onKeyDown);
 
   // ---------------------------------------------------------------------------
   // Window resize
   // ---------------------------------------------------------------------------
 
-  window.addEventListener('resize', () => {
+  ns.addListener(window, 'resize', function () {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     svgLayer.setAttribute('width', window.innerWidth);
     svgLayer.setAttribute('height', window.innerHeight);
-    redrawCanvas();
-    clampToolbarPosition();
+    ns.redrawCanvas();
+    ns.clampToolbarPosition();
   });
 
   // ---------------------------------------------------------------------------
   // Destroy / cleanup
   // ---------------------------------------------------------------------------
 
-  function destroyOverlay() {
-    document.removeEventListener('keydown', onKeyDown);
+  ns.destroyOverlay = function () {
+    ns.cancelCompare();
+    STATE.templateMode = null;
+    removeAllListeners();
     overlay.remove();
     delete window.__markupState;
-  }
-
-  // Expose state for capture.js
-  window.__markupState = STATE;
-  window.__markupOverlay = overlay;
-  window.__markupCanvas = canvas;
-  window.__markupSvgLayer = svgLayer;
-  window.__markupHtmlLayer = htmlLayer;
-  window.__markupToolbar = toolbar;
+    delete window.__markupOverlay;
+    delete window.__markupCanvas;
+    delete window.__markupCtx;
+    delete window.__markupSvgLayer;
+    delete window.__markupHtmlLayer;
+    delete window.__markupToolbar;
+  };
 
 })();

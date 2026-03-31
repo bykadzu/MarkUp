@@ -60,7 +60,7 @@
   background: rgba(15, 20, 30, 0.88);
   backdrop-filter: blur(24px) saturate(1.4);
   -webkit-backdrop-filter: blur(24px) saturate(1.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow:
     0 8px 40px rgba(0, 0, 0, 0.6),
     0 0 80px rgba(0, 0, 0, 0.2),
@@ -186,35 +186,20 @@
   flex-shrink: 0;
 }
 
-/* ---------- Close button (edge badge) ---------- */
+/* ---------- Close button (in feature strip) ---------- */
 
 .markup-tb-close-btn {
-  position: absolute;
-  top: 6px;
-  right: 22px;
-  width: 22px;
-  height: 22px;
-  border: none;
-  background: rgba(248, 113, 113, 0.12);
   color: #f87171;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
 }
 
 .markup-tb-close-btn:hover {
   background: rgba(248, 113, 113, 0.25);
   color: #fca5a5;
-  transform: scale(1.1);
 }
 
 .markup-tb-close-btn svg {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
 }
 
 /* ---------- Color swatch (in inner ring) ---------- */
@@ -626,5 +611,420 @@
   border: 2px dashed rgba(255, 255, 255, 0.8);
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
   z-index: 2147483646;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   MarkUp v3 — Feature strip, Comparison, Share, Templates
+   ========================================================================== */
+
+/* ---------- Feature strip (below circular toolbar) ---------- */
+
+.markup-tb-features {
+  position: absolute;
+  bottom: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  padding: 5px 8px;
+  background: rgba(15, 20, 30, 0.88);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  white-space: nowrap;
+}
+
+.markup-tb-feat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: #888;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  padding: 0;
+}
+
+.markup-tb-feat:hover {
+  color: #eee;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.markup-tb-feat svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* ---------- Comparison mode ---------- */
+
+#markup-compare-banner {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: rgba(15, 20, 30, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  z-index: 2147483647;
+  color: #e0e0e0;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  white-space: nowrap;
+}
+
+.markup-compare-btn {
+  padding: 6px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #ccc;
+  font-size: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.markup-compare-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.markup-compare-btn-primary {
+  background: rgba(74, 222, 128, 0.15);
+  border-color: rgba(74, 222, 128, 0.3);
+  color: #4ade80;
+}
+
+.markup-compare-btn-primary:hover {
+  background: rgba(74, 222, 128, 0.25);
+  color: #86efac;
+}
+
+#markup-compare-view {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2147483647;
+  background: #111;
+  overflow: hidden;
+}
+
+.markup-compare-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+#markup-compare-slider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #fff;
+  cursor: ew-resize;
+  z-index: 10;
+  transform: translateX(-50%);
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+}
+
+.markup-compare-slider-handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 36px;
+  height: 36px;
+  margin: -18px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: ew-resize;
+}
+
+.markup-compare-slider-handle span {
+  font-size: 10px;
+  color: #333;
+  letter-spacing: 2px;
+  user-select: none;
+}
+
+.markup-compare-label {
+  position: absolute;
+  top: 16px;
+  padding: 4px 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  letter-spacing: 1px;
+  border-radius: 6px;
+  z-index: 11;
+  user-select: none;
+}
+
+.markup-compare-label-before { left: 16px; }
+.markup-compare-label-after { right: 16px; }
+
+.markup-compare-actions {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 12;
+}
+
+/* ---------- Share modal ---------- */
+
+#markup-share-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2147483647;
+}
+
+.markup-share-dialog {
+  padding: 20px 24px;
+  background: rgba(18, 18, 28, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+  max-width: 360px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ---------- Template panel ---------- */
+
+.markup-template-panel {
+  position: fixed;
+  width: 200px;
+  max-height: 360px;
+  overflow-y: auto;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.95) translateY(4px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  padding: 8px;
+  background: rgba(15, 20, 30, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  z-index: 2147483647;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+.markup-template-panel.open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1) translateY(0);
+}
+
+.markup-template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.markup-template-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: #ccc;
+  font-size: 12px;
+  font-family: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  text-align: left;
+  width: 100%;
+}
+
+.markup-template-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.markup-template-item-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.markup-template-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.markup-template-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 6px 0;
+}
+
+.markup-template-create-btn {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: #888;
+  font-size: 12px;
+  font-family: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+  text-align: center;
+}
+
+.markup-template-create-btn:hover {
+  color: #ccc;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.markup-template-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 6px;
+}
+
+.markup-tpl-input {
+  padding: 5px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+.markup-tpl-input:focus {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.markup-tpl-input::placeholder {
+  color: #666;
+}
+
+.markup-tpl-colors {
+  display: flex;
+  gap: 4px;
+  padding: 2px 0;
+}
+
+.markup-tpl-color-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s, border-color 0.12s;
+}
+
+.markup-tpl-color-btn:hover {
+  transform: scale(1.15);
+}
+
+.markup-tpl-color-btn.active {
+  border-color: #fff;
+}
+
+/* ---------- Template annotation (placed on page) ---------- */
+
+.markup-template-annotation {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 6px;
+  background: rgba(18, 18, 28, 0.9);
+  border: 1.5px solid;
+  border-radius: 16px;
+  z-index: 2147483645;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+.markup-template-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.markup-template-text {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* ---------- Feature strip separator ---------- */
+
+.markup-tb-feat-sep {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  align-self: center;
+  flex-shrink: 0;
+}
+
+/* ---------- Pinned annotations (injected into page DOM) ---------- */
+
+.markup-pinned-annotation {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2147483630;
+}
+
+.markup-pinned-annotation img,
+.markup-pinned-annotation svg {
   pointer-events: none;
 }

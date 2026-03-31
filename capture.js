@@ -25,9 +25,17 @@
     return `markup-${getDomain()}-${getTimestamp()}.png`;
   }
 
-  // Toast notification
+  // Toast notification (with timeout tracking to prevent stacking)
+  var toastTimeout = null;
+
   function showToast(message, duration) {
     duration = duration || 4000;
+
+    // Clear pending timeout and remove existing toast
+    if (toastTimeout) {
+      clearTimeout(toastTimeout);
+      toastTimeout = null;
+    }
     const existing = document.getElementById('markup-toast');
     if (existing) existing.remove();
 
@@ -43,10 +51,11 @@
       toast.style.transform = 'translateX(-50%) translateY(0)';
     });
 
-    setTimeout(() => {
+    toastTimeout = setTimeout(() => {
       toast.style.opacity = '0';
       toast.style.transform = 'translateX(-50%) translateY(10px)';
       setTimeout(() => toast.remove(), 300);
+      toastTimeout = null;
     }, duration);
   }
 
@@ -78,7 +87,7 @@
     // Check HTML annotations (text notes, pins, stamps)
     var htmlLayer = window.__markupHtmlLayer;
     if (htmlLayer) {
-      htmlLayer.querySelectorAll('.markup-text-note, .markup-pin, .markup-stamp').forEach(function(el) {
+      htmlLayer.querySelectorAll('.markup-text-note, .markup-pin, .markup-stamp, .markup-template-annotation').forEach(function(el) {
         var rect = el.getBoundingClientRect();
         var absTop = rect.top + window.scrollY;
         var absLeft = rect.left + window.scrollX;
@@ -176,6 +185,50 @@
       var bg = el.style.background || window.getComputedStyle(el).backgroundColor;
       drawCircle(cctx, x + r, y + r, r - 1, bg, 2, 'rgba(255, 255, 255, 0.3)');
       drawCenteredText(cctx, el.textContent, x + r, y + r, 18, '700');
+    });
+
+    // Render template annotations (pill badge)
+    htmlLayer.querySelectorAll('.markup-template-annotation').forEach(function(el) {
+      var rect = el.getBoundingClientRect();
+      var x = rect.left + offX;
+      var y = rect.top + offY;
+      var w = rect.width;
+      var h = rect.height;
+      var borderColor = el.style.borderColor || '#DC2626';
+
+      cctx.save();
+      cctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      cctx.shadowBlur = 6;
+      cctx.shadowOffsetY = 2;
+      drawRoundedRect(cctx, x, y, w, h, h / 2);
+      cctx.fillStyle = 'rgba(18, 18, 28, 0.9)';
+      cctx.fill();
+      cctx.strokeStyle = borderColor;
+      cctx.lineWidth = 1.5;
+      cctx.stroke();
+      cctx.restore();
+
+      var dot = el.querySelector('.markup-template-dot');
+      if (dot) {
+        var dotRect = dot.getBoundingClientRect();
+        var dotCx = dotRect.left + offX + dotRect.width / 2;
+        var dotCy = dotRect.top + offY + dotRect.height / 2;
+        cctx.beginPath();
+        cctx.arc(dotCx, dotCy, dotRect.width / 2, 0, Math.PI * 2);
+        cctx.fillStyle = dot.style.background || borderColor;
+        cctx.fill();
+      }
+
+      var textEl = el.querySelector('.markup-template-text');
+      if (textEl) {
+        var textRect = textEl.getBoundingClientRect();
+        cctx.save();
+        cctx.fillStyle = textEl.style.color || '#fff';
+        cctx.font = '600 12px ' + ANNOTATION_FONT;
+        cctx.textBaseline = 'middle';
+        cctx.fillText(textEl.textContent, textRect.left + offX, textRect.top + offY + textRect.height / 2);
+        cctx.restore();
+      }
     });
 
     // Render text notes (badge circle + label box)
@@ -341,7 +394,31 @@
       }
     }
 
-    // 4. Render HTML annotations (text notes, pins, stamps) directly to canvas
+    // 4. Render blur/redact regions by re-drawing blurred page content
+    const htmlLayer = window.__markupHtmlLayer;
+    if (htmlLayer) {
+      htmlLayer.querySelectorAll('.markup-blur-region').forEach(function(el) {
+        const rect = el.getBoundingClientRect();
+        const x = Math.round(rect.left + offX);
+        const y = Math.round(rect.top + offY);
+        const w = Math.round(rect.width);
+        const h = Math.round(rect.height);
+        if (w <= 0 || h <= 0) return;
+
+        // Extract the region, blur it, draw it back
+        cctx.save();
+        cctx.beginPath();
+        cctx.rect(x, y, w, h);
+        cctx.clip();
+        cctx.filter = 'blur(12px)';
+        // Draw a slightly expanded area to avoid blur edge artifacts
+        cctx.drawImage(compositeCanvas, x - 4, y - 4, w + 8, h + 8, x - 4, y - 4, w + 8, h + 8);
+        cctx.filter = 'none';
+        cctx.restore();
+      });
+    }
+
+    // 5. Render HTML annotations (text notes, pins, stamps) directly to canvas
     //    Direct canvas rendering — these are simple shapes we control
     renderAnnotationsToCanvas(cctx, offX, offY);
 
@@ -382,7 +459,6 @@
 
       const compositeCanvas = await captureComposite();
       const filename = getFilename();
-      const savePath = `C:\\Users\\gentl\\Downloads\\${filename}`;
 
       compositeCanvas.toBlob(function(blob) {
         if (!blob) {
@@ -400,11 +476,11 @@
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        // Copy PATH to clipboard (most useful for Claude Code workflow)
-        navigator.clipboard.writeText(savePath).then(function() {
-          showToast(`Saved + path copied: ${savePath}`, 5000);
+        // Copy filename to clipboard
+        navigator.clipboard.writeText(filename).then(function() {
+          showToast(`Saved: ${filename} (name copied)`, 5000);
         }).catch(function() {
-          showToast(`Saved: ${savePath}`, 5000);
+          showToast(`Saved: ${filename}`, 5000);
         });
       }, 'image/png');
     } catch (err) {
@@ -424,7 +500,6 @@
 
       const croppedCanvas = await captureComposite(bounds);
       const filename = getFilename();
-      const savePath = `C:\\Users\\gentl\\Downloads\\${filename}`;
 
       croppedCanvas.toBlob(function(blob) {
         if (!blob) {
@@ -441,10 +516,10 @@
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        navigator.clipboard.writeText(savePath).then(function() {
-          showToast(`Saved + path copied: ${savePath}`, 5000);
+        navigator.clipboard.writeText(filename).then(function() {
+          showToast(`Saved: ${filename} (name copied)`, 5000);
         }).catch(function() {
-          showToast(`Saved: ${savePath}`, 5000);
+          showToast(`Saved: ${filename}`, 5000);
         });
       }, 'image/png');
     } catch (err) {
@@ -535,6 +610,95 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Full-page screenshot (scroll-and-stitch)
+  // ---------------------------------------------------------------------------
+
+  async function captureFullPage() {
+    var overlay = window.__markupOverlay;
+    if (!overlay) throw new Error('MarkUp overlay not found.');
+
+    // Remove any visible toast so it doesn't appear in captures
+    var toast = document.getElementById('markup-toast');
+    if (toast) toast.remove();
+
+    var origScrollX = window.scrollX;
+    var origScrollY = window.scrollY;
+    var viewW = window.innerWidth;
+    var viewH = window.innerHeight;
+    var totalH = Math.max(
+      document.body.scrollHeight,
+      document.documentElement.scrollHeight
+    );
+
+    // Hide overlay (pinned annotations are in page DOM, stay visible)
+    overlay.style.display = 'none';
+
+    var chunks = [];
+    var numChunks = Math.ceil(totalH / viewH);
+
+    try {
+      for (var i = 0; i < numChunks; i++) {
+        window.scrollTo(0, i * viewH);
+        await new Promise(function(r) { requestAnimationFrame(function() { setTimeout(r, 150); }); });
+
+        var dataUrl = await requestNativeScreenshot();
+        var img = await loadImage(dataUrl);
+        chunks.push({ img: img, scrollY: window.scrollY });
+      }
+    } finally {
+      window.scrollTo(origScrollX, origScrollY);
+      overlay.style.display = '';
+    }
+
+    // Stitch chunks onto a single canvas
+    var stitchedCanvas = document.createElement('canvas');
+    stitchedCanvas.width = viewW;
+    stitchedCanvas.height = totalH;
+    var sctx = stitchedCanvas.getContext('2d');
+
+    for (var j = 0; j < chunks.length; j++) {
+      sctx.drawImage(chunks[j].img, 0, chunks[j].scrollY, viewW, viewH);
+    }
+
+    return stitchedCanvas;
+  }
+
+  async function saveFullPagePNG() {
+    showToast('Capturing full page...', 15000);
+
+    try {
+      await new Promise(function(r) { setTimeout(r, 50); });
+
+      var fullCanvas = await captureFullPage();
+      var filename = 'markup-fullpage-' + getDomain() + '-' + getTimestamp() + '.png';
+
+      fullCanvas.toBlob(function(blob) {
+        if (!blob) {
+          showToast('Error: Failed to create full page screenshot.', 3000);
+          return;
+        }
+
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        navigator.clipboard.writeText(filename).then(function() {
+          showToast('Full page saved: ' + filename + ' (name copied)', 5000);
+        }).catch(function() {
+          showToast('Full page saved: ' + filename, 5000);
+        });
+      }, 'image/png');
+    } catch (err) {
+      showToast('Error: ' + err.message, 4000);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Expose API
   // ---------------------------------------------------------------------------
 
@@ -543,6 +707,12 @@
     saveCrop,
     copyToClipboard,
     exportNotes,
+    captureComposite,
+    captureFullPage,
+    saveFullPagePNG,
+    requestNativeScreenshot,
+    showToast,
+    loadImage,
   };
 
 })();

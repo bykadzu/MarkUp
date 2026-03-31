@@ -18,7 +18,7 @@ TOOLS:
 - Stamps: checkmark, cross, question mark, star — quick reactions
 - Eraser: click any annotation to remove it
 - Crop: region select to save just a portion
-- Undo: Ctrl+Z unlimited stack
+- Undo/Redo: Ctrl+Z / Ctrl+Y unlimited stack
 
 COLORS:
 9 preset colors + custom color picker. Active color applies to all tools.
@@ -36,6 +36,7 @@ KEYBOARD SHORTCUTS:
 - Ctrl+I: Italic text
 - Ctrl+U: Underline text
 - Ctrl+Z: Undo
+- Ctrl+Y: Redo
 - Ctrl+Enter: Finalize text note
 - ESC: Close MarkUp
 
@@ -43,5 +44,5 @@ PRIVACY:
 - Zero data collection. No analytics. No tracking. No account required.
 - All annotations stay local in your browser.
 - Screenshots save to your Downloads folder.
-- No external network requests — html2canvas is bundled.
+- No external network requests — screenshots composited locally via Canvas API.
 - Open source: https://github.com/bykadzu/MarkUp

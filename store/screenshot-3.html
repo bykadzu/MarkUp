@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MarkUp — Screenshot 3: Text Notes &amp; Pins</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1280px; height: 800px; overflow: hidden;
+    background: #09090b; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #e4e4e7; position: relative;
+  }
+
+  /* ── Simulated webpage — design mockup ── */
+  .webpage {
+    position: absolute; top: 36px; left: 36px;
+    width: 1208px; height: 660px;
+    background: #18181b; border-radius: 12px;
+    border: 1px solid #27272a; overflow: hidden;
+  }
+  .browser-bar {
+    height: 34px; background: #1c1c1f; border-bottom: 1px solid #27272a;
+    display: flex; align-items: center; padding: 0 12px; gap: 8px;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.r { background: #ef4444; } .dot.y { background: #eab308; } .dot.g { background: #22c55e; }
+  .url-bar {
+    margin-left: 12px; background: #27272a; border-radius: 6px;
+    height: 22px; width: 300px; display: flex; align-items: center;
+    padding: 0 10px; font-size: 11px; color: #71717a;
+  }
+
+  .page-body { padding: 28px 32px; }
+
+  /* Header section */
+  .site-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 28px; padding-bottom: 16px; border-bottom: 1px solid #27272a;
+  }
+  .site-logo { font-size: 18px; font-weight: 700; color: #fafafa; }
+  .site-logo span { color: #0ea5e9; }
+  .site-nav { display: flex; gap: 20px; font-size: 13px; color: #71717a; }
+  .header-btn {
+    background: #0ea5e9; color: #fff; font-size: 12px; font-weight: 600;
+    padding: 7px 18px; border-radius: 6px;
+  }
+
+  /* Two column layout */
+  .two-col { display: flex; gap: 28px; }
+  .col-left { flex: 1; }
+  .col-right { width: 360px; }
+
+  .section-title { font-size: 15px; font-weight: 600; color: #d4d4d8; margin-bottom: 12px; }
+
+  /* Form mockup */
+  .form-group { margin-bottom: 14px; }
+  .form-label { font-size: 11px; color: #71717a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .4px; }
+  .form-input {
+    width: 100%; height: 34px; background: #27272a; border: 1px solid #3f3f46;
+    border-radius: 6px; padding: 0 12px; font-size: 13px; color: #d4d4d8;
+    display: flex; align-items: center;
+  }
+  .form-textarea {
+    width: 100%; height: 80px; background: #27272a; border: 1px solid #3f3f46;
+    border-radius: 6px; padding: 10px 12px; font-size: 12px; color: #a1a1aa; line-height: 1.5;
+  }
+
+  /* Card on right */
+  .preview-card {
+    background: #27272a; border-radius: 10px; border: 1px solid #3f3f46;
+    overflow: hidden;
+  }
+  .preview-image {
+    height: 140px; background: linear-gradient(135deg, #1e293b, #0f172a);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .preview-placeholder {
+    width: 80px; height: 60px; background: rgba(14,165,233,.15);
+    border-radius: 8px; border: 1px dashed #0ea5e9;
+  }
+  .preview-body { padding: 16px; }
+  .preview-title { font-size: 14px; font-weight: 600; color: #fafafa; margin-bottom: 6px; }
+  .preview-text { font-size: 12px; color: #71717a; line-height: 1.5; }
+
+  /* Stats row */
+  .stats-row { display: flex; gap: 12px; margin-top: 20px; }
+  .stat-box {
+    flex: 1; background: #27272a; border-radius: 8px; border: 1px solid #3f3f46;
+    padding: 12px 14px; text-align: center;
+  }
+  .stat-val { font-size: 20px; font-weight: 700; color: #fafafa; }
+  .stat-lbl { font-size: 10px; color: #71717a; margin-top: 2px; text-transform: uppercase; letter-spacing: .3px; }
+
+  /* ── ANNOTATIONS ── */
+
+  /* Numbered pins */
+  .pin {
+    position: absolute; width: 30px; height: 30px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; z-index: 20;
+    box-shadow: 0 0 0 3px rgba(0,0,0,.3), 0 2px 10px rgba(0,0,0,.4);
+  }
+  .pin-teal { background: #00af87; color: #09090b; box-shadow: 0 0 0 3px rgba(0,175,135,.3), 0 2px 10px rgba(0,0,0,.4); }
+  .pin1 { top: 100px; left: 150px; }
+  .pin2 { top: 220px; left: 540px; }
+  .pin3 { top: 300px; left: 920px; }
+  .pin4 { top: 500px; left: 320px; }
+  .pin5 { top: 420px; left: 740px; }
+
+  /* Text notes with rich formatting */
+  .note {
+    position: absolute; z-index: 20;
+    background: rgba(0,175,135,.08); border: 1.5px solid #00af87;
+    border-radius: 8px; padding: 12px 16px; max-width: 240px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 16px rgba(0,0,0,.3);
+  }
+  .note-header {
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(0,175,135,.2);
+  }
+  .note-pin {
+    width: 20px; height: 20px; border-radius: 50%; background: #00af87;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #09090b;
+  }
+  .note-title { font-size: 11px; font-weight: 600; color: #5eead4; }
+  .note-body { font-size: 12px; color: #99f6e4; line-height: 1.6; }
+  .note-body b { font-weight: 700; color: #5eead4; }
+  .note-body i { font-style: italic; }
+  .note-body u { text-decoration: underline; text-underline-offset: 2px; }
+
+  /* Connector lines from pins to notes */
+  .svg-overlay {
+    position: absolute; top: 0; left: 0; width: 1280px; height: 800px;
+    pointer-events: none; z-index: 15;
+  }
+
+  /* Note positions */
+  .note1 { top: 58px; left: 200px; }
+  .note2 { top: 168px; left: 580px; }
+  .note3 { top: 250px; left: 960px; }
+  .note4 { top: 508px; left: 80px; }
+  .note5 { top: 360px; left: 780px; }
+
+  /* Formatting toolbar sample */
+  .format-bar {
+    position: absolute; top: 486px; left: 160px; z-index: 25;
+    display: flex; gap: 2px; background: rgba(24,24,27,.95);
+    border: 1px solid #3f3f46; border-radius: 8px; padding: 4px 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.5);
+    backdrop-filter: blur(12px);
+  }
+  .fmt-btn {
+    width: 28px; height: 26px; display: flex; align-items: center; justify-content: center;
+    border-radius: 4px; font-size: 13px; font-weight: 700; color: #a1a1aa;
+  }
+  .fmt-btn.active { background: rgba(0,175,135,.2); color: #00af87; }
+  .fmt-sep { width: 1px; background: #3f3f46; margin: 2px 4px; }
+
+  /* Caption */
+  .caption {
+    position: absolute; bottom: 18px; left: 0; right: 0; text-align: center;
+    font-size: 20px; font-weight: 600; color: #fafafa; letter-spacing: -.3px; z-index: 30;
+  }
+  .caption span { color: #00af87; }
+
+  .watermark {
+    position: absolute; bottom: 10px; right: 24px;
+    font-size: 11px; color: #52525b; letter-spacing: .3px; z-index: 30;
+  }
+</style>
+</head>
+<body>
+
+<div class="webpage">
+  <div class="browser-bar">
+    <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+    <div class="url-bar">staging.brandkit.design/settings</div>
+  </div>
+  <div class="page-body">
+    <div class="site-header">
+      <div class="site-logo">Brand<span>Kit</span></div>
+      <div class="site-nav"><span>Dashboard</span><span>Components</span><span>Settings</span></div>
+      <div class="header-btn">Publish</div>
+    </div>
+    <div class="two-col">
+      <div class="col-left">
+        <div class="section-title">Profile Settings</div>
+        <div class="form-group">
+          <div class="form-label">Display Name</div>
+          <div class="form-input">Acme Design Team</div>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Email</div>
+          <div class="form-input">team@acme-design.io</div>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Bio</div>
+          <div class="form-textarea">We build design systems for modern web applications. Our focus is on accessibility and developer experience.</div>
+        </div>
+        <div class="stats-row">
+          <div class="stat-box"><div class="stat-val">142</div><div class="stat-lbl">Components</div></div>
+          <div class="stat-box"><div class="stat-val">28</div><div class="stat-lbl">Pages</div></div>
+          <div class="stat-box"><div class="stat-val">3.2k</div><div class="stat-lbl">Downloads</div></div>
+        </div>
+      </div>
+      <div class="col-right">
+        <div class="section-title">Preview Card</div>
+        <div class="preview-card">
+          <div class="preview-image"><div class="preview-placeholder"></div></div>
+          <div class="preview-body">
+            <div class="preview-title">Acme Design Team</div>
+            <div class="preview-text">Design systems for modern web apps. Accessible, composable, production-ready.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Pins -->
+<div class="pin pin-teal pin1">1</div>
+<div class="pin pin-teal pin2">2</div>
+<div class="pin pin-teal pin3">3</div>
+<div class="pin pin-teal pin4">4</div>
+<div class="pin pin-teal pin5">5</div>
+
+<!-- Connector lines -->
+<svg class="svg-overlay" xmlns="http://www.w3.org/2000/svg">
+  <line x1="180px" y1="115px" x2="210px" y2="106px" stroke="#00af87" stroke-width="1.5" stroke-dasharray="4,3" opacity=".6"/>
+  <line x1="570px" y1="235px" x2="590px" y2="218px" stroke="#00af87" stroke-width="1.5" stroke-dasharray="4,3" opacity=".6"/>
+  <line x1="950px" y1="315px" x2="970px" y2="300px" stroke="#00af87" stroke-width="1.5" stroke-dasharray="4,3" opacity=".6"/>
+  <line x1="340px" y1="520px" x2="310px" y2="540px" stroke="#00af87" stroke-width="1.5" stroke-dasharray="4,3" opacity=".6"/>
+  <line x1="770px" y1="435px" x2="790px" y2="410px" stroke="#00af87" stroke-width="1.5" stroke-dasharray="4,3" opacity=".6"/>
+</svg>
+
+<!-- Text notes -->
+<div class="note note1">
+  <div class="note-header"><div class="note-pin">1</div><div class="note-title">Navigation</div></div>
+  <div class="note-body"><b>Logo alignment</b> is 2px off from the Figma spec. Should be <u>vertically centered</u> with nav links.</div>
+</div>
+
+<div class="note note2">
+  <div class="note-header"><div class="note-pin">2</div><div class="note-title">Form Field</div></div>
+  <div class="note-body">Email input needs <b>validation states</b> — add <i>error</i> and <i>success</i> border colors per design tokens.</div>
+</div>
+
+<div class="note note3">
+  <div class="note-header"><div class="note-pin">3</div><div class="note-title">Preview Card</div></div>
+  <div class="note-body">Image aspect ratio should be <b>16:9</b>. Current render is <u>slightly cropped</u> on the right edge.</div>
+</div>
+
+<div class="note note4">
+  <div class="note-header"><div class="note-pin">4</div><div class="note-title">Stats Section</div></div>
+  <div class="note-body">Use <b>tabular-nums</b> for the stat values so they <u>align properly</u> when numbers change.</div>
+</div>
+
+<div class="note note5">
+  <div class="note-header"><div class="note-pin">5</div><div class="note-title">Spacing</div></div>
+  <div class="note-body">Gap between preview body and card edge is <b>16px</b>. Spec says <i>20px</i> — please <u>update padding</u>.</div>
+</div>
+
+<!-- Formatting toolbar -->
+<div class="format-bar">
+  <div class="fmt-btn active">B</div>
+  <div class="fmt-btn"><i>I</i></div>
+  <div class="fmt-btn"><u>U</u></div>
+  <div class="fmt-sep"></div>
+  <div class="fmt-btn" style="font-size:11px;">Aa</div>
+</div>
+
+<!-- Caption -->
+<div class="caption"><span>Numbered pins</span> and rich text notes for design QA</div>
+
+<!-- Watermark -->
+<div class="watermark">MarkUp by Myfrendo</div>
+
+</body>
+</html>

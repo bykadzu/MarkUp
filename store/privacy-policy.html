@@ -57,7 +57,7 @@
   <ul>
     <li>All annotations (drawings, arrows, text notes, pins, highlights, blur regions) are created and stored <strong>entirely in your browser's memory</strong> during the active session.</li>
     <li>When you close MarkUp or navigate away, all annotations are discarded.</li>
-    <li>Screenshots are rendered locally using a bundled library (html2canvas) with <strong>zero external calls</strong>.</li>
+    <li>Screenshots are composited locally using the browser's native Canvas API with <strong>zero external calls</strong>.</li>
     <li>Exported PNG files are saved to your <strong>local Downloads folder</strong> via the browser's standard download API.</li>
     <li>File paths may be copied to your clipboard when you save — this is a local clipboard operation only.</li>
   </ul>
@@ -72,7 +72,7 @@
     </tr>
     <tr>
       <td><code>scripting</code></td>
-      <td>To inject the annotation engine (content.js, styles.css, html2canvas) into the active tab. Required by Manifest V3.</td>
+      <td>To inject the annotation engine (content.js, capture.js, styles.css) into the active tab. Required by Manifest V3.</td>
     </tr>
   </table>
   <p>MarkUp does <strong>not</strong> request permissions for: all browsing history, all website data, background execution, network access, storage sync, or identity/account info.</p>

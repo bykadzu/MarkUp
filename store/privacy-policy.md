@@ -4,7 +4,7 @@
 
 ## Summary
 
-MarkUp does not collect, store, transmit, or share any user data. Period.
+MarkUp does not collect, store, or track any user data. All annotation work happens locally in your browser.
 
 ## Data Collection
 
@@ -14,14 +14,14 @@ MarkUp collects **no data whatsoever**. Specifically:
 - **No browsing history** is tracked or stored
 - **No analytics or telemetry** is sent anywhere
 - **No cookies** are set by the extension
-- **No external network requests** are made by the extension
 - **No user behavior** is monitored or logged
+- **No automatic network requests** are made by the extension
 
 ## How MarkUp Works
 
 - All annotations (drawings, arrows, text notes, pins, highlights, blur regions) are created and stored **entirely in your browser's memory** during the active session
 - When you close MarkUp or navigate away, all annotations are discarded
-- Screenshots are rendered locally using a bundled library (html2canvas) with **zero external calls**
+- Screenshots are composited locally using the browser's native Canvas API with **zero external calls**
 - Exported PNG files are saved to your **local Downloads folder** via the browser's standard download API
 - File paths may be copied to your clipboard when you save — this is a local clipboard operation only
 
@@ -32,7 +32,7 @@ MarkUp requests only two permissions:
 | Permission | Why |
 |-----------|-----|
 | `activeTab` | To inject the annotation overlay onto the current tab when you click the extension icon. Only activates on the tab you explicitly choose. |
-| `scripting` | To inject the annotation engine (content.js, styles.css, html2canvas) into the active tab. Required by Manifest V3. |
+| `scripting` | To inject the annotation engine (content.js, capture.js, styles.css) into the active tab. Required by Manifest V3. |
 
 MarkUp does **not** request permissions for:
 - All browsing history
@@ -42,14 +42,24 @@ MarkUp does **not** request permissions for:
 - Storage sync
 - Identity or account info
 
+## Share Feature (Optional)
+
+MarkUp includes an optional **Share** feature. When you explicitly click the Share button:
+- Your annotated screenshot is uploaded to **Litterbox by Catbox** (litterbox.catbox.moe), a temporary file hosting service
+- The upload expires automatically after **24 hours**
+- A shareable link is generated and copied to your clipboard
+- **This only happens when you actively choose to share** — no uploads occur during normal annotation use
+
+This is the only network request MarkUp ever makes, and only when you initiate it.
+
 ## Third-Party Services
 
-MarkUp uses **no third-party services**. There are:
+MarkUp uses **no third-party services** during normal operation. There are:
 - No analytics providers (no Google Analytics, no Mixpanel, no Plausible)
 - No crash reporting services
 - No advertising networks
 - No data brokers
-- No external APIs
+- The only external service is **Litterbox/Catbox** for the optional Share feature (user-initiated only)
 
 ## Data Storage
 

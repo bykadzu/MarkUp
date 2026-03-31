@@ -4,28 +4,59 @@
 const api = (typeof browser !== 'undefined' && browser.tabs) ? browser : chrome;
 
 document.getElementById('btn-annotate').addEventListener('click', async () => {
-  const tabs = await api.tabs.query({ active: true, currentWindow: true });
-  const tab = tabs[0];
-  if (!tab?.id) return;
+  try {
+    const tabs = await api.tabs.query({ active: true, currentWindow: true });
+    const tab = tabs[0];
+    if (!tab?.id) return;
 
-  // Inject styles first
-  await api.scripting.insertCSS({
-    target: { tabId: tab.id },
-    files: ['styles.css']
-  });
+    // Inject styles
+    await api.scripting.insertCSS({
+      target: { tabId: tab.id },
+      files: ['styles.css']
+    });
 
-  // Inject capture utilities
-  await api.scripting.executeScript({
-    target: { tabId: tab.id },
-    files: ['capture.js']
-  });
+    // Inject modules in dependency order (all define functions, no side effects)
+    await api.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['capture.js']
+    });
+    await api.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['annotations.js']
+    });
+    await api.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['annotations-html.js']
+    });
+    await api.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['compare.js']
+    });
+    await api.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['features.js']
+    });
+    await api.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['toolbar.js']
+    });
+    await api.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['eraser.js']
+    });
+    await api.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['keyboard.js']
+    });
 
-  // Inject main annotation engine
-  await api.scripting.executeScript({
-    target: { tabId: tab.id },
-    files: ['content.js']
-  });
+    // Orchestrator — loaded last, creates DOM and wires everything
+    await api.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['content.js']
+    });
 
-  // Close popup
-  window.close();
+    window.close();
+  } catch (err) {
+    console.error('MarkUp injection failed:', err);
+  }
 });

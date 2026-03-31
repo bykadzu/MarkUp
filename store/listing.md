@@ -41,7 +41,7 @@ Eraser — Click any annotation to remove it. Clean and surgical.
 
 Crop — Region select to save just a portion of the page as PNG.
 
-Undo — Ctrl+Z with an unlimited stack. Undo anything.
+Undo / Redo — Ctrl+Z to undo, Ctrl+Y to redo. Unlimited stack.
 
 9 COLORS + CUSTOM PICKER
 
@@ -61,6 +61,7 @@ Ctrl+B — Bold (in text tool)
 Ctrl+I — Italic (in text tool)
 Ctrl+U — Underline (in text tool)
 Ctrl+Z — Undo last annotation
+Ctrl+Y — Redo undone annotation
 Ctrl+Enter — Finalize text note
 ESC — Close MarkUp
 
@@ -86,7 +87,7 @@ PRIVACY
 
 MarkUp does not collect, store, or transmit any user data. Zero analytics. Zero telemetry. Zero cookies. Zero external network requests. No account required.
 
-All annotations live in your browser's memory during the session and are discarded when you close MarkUp. Screenshots are rendered locally using a bundled copy of html2canvas — nothing is uploaded, nothing phones home.
+All annotations live in your browser's memory during the session and are discarded when you close MarkUp. Screenshots are composited locally using the browser's native Canvas API — nothing is uploaded, nothing phones home.
 
 The only permissions requested are activeTab (to overlay annotations on the current page) and scripting (to inject the annotation engine). That's it.
 

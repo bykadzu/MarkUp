@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MarkUp — Screenshot 4: Export</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1280px; height: 800px; overflow: hidden;
+    background: #09090b; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #e4e4e7; position: relative;
+  }
+
+  /* ── Simulated annotated webpage (slightly dimmed to show export flow) ── */
+  .webpage {
+    position: absolute; top: 36px; left: 36px;
+    width: 780px; height: 620px;
+    background: #18181b; border-radius: 12px;
+    border: 1px solid #27272a; overflow: hidden;
+    opacity: .85;
+  }
+  .browser-bar {
+    height: 34px; background: #1c1c1f; border-bottom: 1px solid #27272a;
+    display: flex; align-items: center; padding: 0 12px; gap: 8px;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.r { background: #ef4444; } .dot.y { background: #eab308; } .dot.g { background: #22c55e; }
+  .url-bar {
+    margin-left: 12px; background: #27272a; border-radius: 6px;
+    height: 22px; width: 240px; display: flex; align-items: center;
+    padding: 0 10px; font-size: 11px; color: #71717a;
+  }
+
+  .page-inner { padding: 24px 28px; }
+  .page-h1 { font-size: 20px; font-weight: 700; color: #fafafa; margin-bottom: 10px; }
+  .page-p { font-size: 13px; color: #a1a1aa; line-height: 1.6; margin-bottom: 16px; max-width: 500px; }
+  .page-grid { display: flex; gap: 14px; }
+  .page-box {
+    width: 140px; height: 90px; background: #27272a; border-radius: 8px;
+    border: 1px solid #3f3f46; padding: 14px;
+  }
+  .page-box-t { font-size: 11px; color: #71717a; margin-bottom: 4px; }
+  .page-box-v { font-size: 18px; font-weight: 700; color: #fafafa; }
+
+  .page-list { margin-top: 20px; }
+  .page-list-item {
+    padding: 10px 0; border-bottom: 1px solid #27272a;
+    font-size: 12px; color: #a1a1aa; display: flex; justify-content: space-between;
+  }
+
+  /* Annotations on the dimmed page */
+  .anno-pin {
+    position: absolute; width: 26px; height: 26px; border-radius: 50%;
+    background: #00af87; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #09090b;
+    box-shadow: 0 0 0 3px rgba(0,175,135,.3), 0 2px 8px rgba(0,0,0,.4);
+  }
+  .p1 { top: 100px; left: 120px; }
+  .p2 { top: 200px; left: 450px; }
+
+  .anno-arrow-overlay {
+    position: absolute; top: 0; left: 0; width: 1280px; height: 800px;
+    pointer-events: none;
+  }
+
+  .anno-rect-small {
+    position: absolute; top: 250px; left: 68px; width: 320px; height: 110px;
+    border: 2px solid #f59e0b; border-radius: 6px; background: rgba(245,158,11,.04);
+  }
+
+  .anno-highlight-small {
+    position: absolute; top: 156px; left: 68px; width: 360px; height: 20px;
+    background: rgba(168,85,247,.15); border: 1px solid rgba(168,85,247,.4); border-radius: 3px;
+  }
+
+  /* ── Export panel (right side) ── */
+  .export-panel {
+    position: absolute; top: 36px; right: 36px;
+    width: 420px; height: 620px;
+    background: rgba(24,24,27,.95); border-radius: 14px;
+    border: 1px solid #3f3f46; backdrop-filter: blur(16px);
+    box-shadow: 0 8px 40px rgba(0,0,0,.6);
+    padding: 28px;
+    display: flex; flex-direction: column;
+  }
+
+  .export-title {
+    font-size: 18px; font-weight: 700; color: #fafafa; margin-bottom: 4px;
+  }
+  .export-sub { font-size: 13px; color: #71717a; margin-bottom: 24px; }
+
+  /* PNG preview thumbnail */
+  .png-preview {
+    width: 100%; height: 200px; background: #18181b; border-radius: 10px;
+    border: 1px solid #27272a; margin-bottom: 20px; position: relative;
+    overflow: hidden;
+  }
+  .png-badge {
+    position: absolute; top: 10px; right: 10px;
+    background: rgba(0,175,135,.15); border: 1px solid #00af87;
+    border-radius: 4px; padding: 3px 8px; font-size: 10px; font-weight: 600; color: #00af87;
+    letter-spacing: .3px;
+  }
+  .png-mini-page {
+    position: absolute; top: 20px; left: 20px; width: 220px; height: 140px;
+    background: #27272a; border-radius: 6px; border: 1px solid #3f3f46;
+  }
+  .png-mini-bar { height: 16px; background: #1c1c1f; border-radius: 6px 6px 0 0; }
+  .png-mini-content { padding: 10px; }
+  .png-mini-line { height: 6px; background: #3f3f46; border-radius: 3px; margin-bottom: 6px; }
+  .png-mini-line.w60 { width: 60%; }
+  .png-mini-line.w80 { width: 80%; }
+  .png-mini-line.w45 { width: 45%; }
+  .png-mini-pin {
+    position: absolute; top: 35px; left: 60px; width: 12px; height: 12px;
+    border-radius: 50%; background: #00af87;
+  }
+  .png-mini-arrow {
+    position: absolute; top: 65px; left: 130px; width: 50px; height: 2px;
+    background: #f59e0b; transform: rotate(-20deg);
+  }
+  .png-mini-rect {
+    position: absolute; bottom: 30px; left: 30px; width: 80px; height: 30px;
+    border: 1.5px solid #ef4444; border-radius: 3px;
+  }
+
+  /* File info */
+  .file-info {
+    background: #27272a; border-radius: 8px; border: 1px solid #3f3f46;
+    padding: 14px 16px; margin-bottom: 16px;
+  }
+  .file-row {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+  }
+  .file-row:last-child { margin-bottom: 0; }
+  .file-label { font-size: 11px; color: #71717a; }
+  .file-value { font-size: 12px; color: #d4d4d8; font-weight: 500; }
+  .file-value.mono { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 11px; color: #00af87; }
+
+  /* Path copied toast */
+  .path-copied {
+    background: rgba(0,175,135,.1); border: 1px solid rgba(0,175,135,.3);
+    border-radius: 8px; padding: 10px 14px; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .path-icon {
+    width: 28px; height: 28px; border-radius: 6px; background: rgba(0,175,135,.15);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .path-icon svg { width: 14px; height: 14px; stroke: #00af87; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .path-text { font-size: 12px; color: #5eead4; }
+  .path-text strong { color: #00af87; }
+
+  /* Action buttons */
+  .export-actions { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+  .btn-primary {
+    width: 100%; height: 44px; border-radius: 10px;
+    background: #00af87; color: #09090b; font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 0 16px rgba(0,175,135,.3);
+  }
+  .btn-primary svg { width: 18px; height: 18px; stroke: #09090b; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+  .btn-secondary {
+    width: 100%; height: 40px; border-radius: 10px;
+    background: #27272a; border: 1px solid #3f3f46; color: #d4d4d8;
+    font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-secondary svg { width: 16px; height: 16px; stroke: #a1a1aa; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .btn-row { display: flex; gap: 10px; }
+  .btn-row .btn-secondary { flex: 1; }
+
+  /* Success check animation indicator */
+  .check-badge {
+    position: absolute; top: 24px; right: 24px;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(0,175,135,.15); border: 2px solid #00af87;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .check-badge svg { width: 18px; height: 18px; stroke: #00af87; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Caption */
+  .caption {
+    position: absolute; bottom: 18px; left: 0; right: 0; text-align: center;
+    font-size: 20px; font-weight: 600; color: #fafafa; letter-spacing: -.3px; z-index: 30;
+  }
+  .caption span { color: #00af87; }
+
+  .watermark {
+    position: absolute; bottom: 10px; right: 24px;
+    font-size: 11px; color: #52525b; letter-spacing: .3px; z-index: 30;
+  }
+</style>
+</head>
+<body>
+
+<!-- Annotated webpage (dimmed behind export panel) -->
+<div class="webpage">
+  <div class="browser-bar">
+    <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+    <div class="url-bar">app.saas-platform.io/dash</div>
+  </div>
+  <div class="page-inner">
+    <div class="page-h1">Project Overview</div>
+    <div class="page-p">Track your project metrics, manage team resources, and monitor deployment status from a single dashboard view.</div>
+    <div class="page-grid">
+      <div class="page-box"><div class="page-box-t">Active</div><div class="page-box-v">24</div></div>
+      <div class="page-box"><div class="page-box-t">Pending</div><div class="page-box-v">7</div></div>
+      <div class="page-box"><div class="page-box-t">Complete</div><div class="page-box-v">183</div></div>
+    </div>
+    <div class="page-list">
+      <div class="page-list-item"><span>Deploy v2.4.1 to staging</span><span style="color:#22c55e">Done</span></div>
+      <div class="page-list-item"><span>Review API rate limits</span><span style="color:#eab308">In Progress</span></div>
+      <div class="page-list-item"><span>Update auth middleware</span><span style="color:#71717a">Queued</span></div>
+      <div class="page-list-item"><span>Run accessibility audit</span><span style="color:#71717a">Queued</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Annotations on the page -->
+<div class="anno-pin p1">1</div>
+<div class="anno-pin p2">2</div>
+<div class="anno-rect-small"></div>
+<div class="anno-highlight-small"></div>
+
+<svg class="anno-arrow-overlay" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="ah" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8" fill="#00af87"/>
+    </marker>
+  </defs>
+  <line x1="150" y1="110" x2="250" y2="140" stroke="#00af87" stroke-width="2" marker-end="url(#ah)"/>
+</svg>
+
+<!-- Export Panel -->
+<div class="export-panel">
+  <div class="check-badge">
+    <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+  </div>
+  <div class="export-title">Export Screenshot</div>
+  <div class="export-sub">Your annotated screenshot is ready</div>
+
+  <div class="png-preview">
+    <div class="png-badge">PNG</div>
+    <div class="png-mini-page">
+      <div class="png-mini-bar"></div>
+      <div class="png-mini-content">
+        <div class="png-mini-line w80"></div>
+        <div class="png-mini-line w60"></div>
+        <div class="png-mini-line w45"></div>
+      </div>
+      <div class="png-mini-pin"></div>
+      <div class="png-mini-arrow"></div>
+      <div class="png-mini-rect"></div>
+    </div>
+  </div>
+
+  <div class="file-info">
+    <div class="file-row">
+      <span class="file-label">Filename</span>
+      <span class="file-value">markup-saas-platform-2026-03-23.png</span>
+    </div>
+    <div class="file-row">
+      <span class="file-label">Dimensions</span>
+      <span class="file-value">1920 x 1080</span>
+    </div>
+    <div class="file-row">
+      <span class="file-label">Size</span>
+      <span class="file-value">842 KB</span>
+    </div>
+  </div>
+
+  <div class="path-copied">
+    <div class="path-icon">
+      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div class="path-text"><strong>File path copied to clipboard</strong><br>Ready to paste into Claude, ChatGPT, or any AI tool</div>
+  </div>
+
+  <div class="export-actions">
+    <div class="btn-primary">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Save as PNG
+    </div>
+    <div class="btn-row">
+      <div class="btn-secondary">
+        <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        Copy to Clipboard
+      </div>
+      <div class="btn-secondary">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Notes as MD
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Caption -->
+<div class="caption"><span>Save as PNG</span> with file path auto-copied for AI workflows</div>
+
+<!-- Watermark -->
+<div class="watermark">MarkUp by Myfrendo</div>
+
+</body>
+</html>
