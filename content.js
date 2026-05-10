@@ -236,15 +236,19 @@ window.addEventListener('unhandledrejection', (e) => reportErrorToSentry(e.reaso
     STATE.isDrawing = false;
   }
 
+  function onTouchStart(e) { e.preventDefault(); onPointerDown(e); }
+  function onTouchMove(e) { e.preventDefault(); onPointerMove(e); }
+  function onTouchEnd(e) { onPointerUp(e); }
+
   // Mouse
-  overlay.addEventListener('mousedown', onPointerDown);
-  overlay.addEventListener('mousemove', onPointerMove);
-  overlay.addEventListener('mouseup', onPointerUp);
+  ns.addListener(overlay, 'mousedown', onPointerDown);
+  ns.addListener(overlay, 'mousemove', onPointerMove);
+  ns.addListener(overlay, 'mouseup', onPointerUp);
 
   // Touch
-  overlay.addEventListener('touchstart', function (e) { e.preventDefault(); onPointerDown(e); }, { passive: false });
-  overlay.addEventListener('touchmove', function (e) { e.preventDefault(); onPointerMove(e); }, { passive: false });
-  overlay.addEventListener('touchend', function (e) { onPointerUp(e); }, { passive: false });
+  ns.addListener(overlay, 'touchstart', onTouchStart, { passive: false });
+  ns.addListener(overlay, 'touchmove', onTouchMove, { passive: false });
+  ns.addListener(overlay, 'touchend', onTouchEnd, { passive: false });
 
   // ---------------------------------------------------------------------------
   // Cursor
@@ -284,7 +288,16 @@ window.addEventListener('unhandledrejection', (e) => reportErrorToSentry(e.reaso
   // Destroy / cleanup
   // ---------------------------------------------------------------------------
 
+  ns.cancelActiveCapture = function () {
+    if (window.__markupCapture && typeof window.__markupCapture.cancelCapture === 'function') {
+      window.__markupCapture.cancelCapture();
+      return true;
+    }
+    return false;
+  };
+
   ns.destroyOverlay = function () {
+    ns.cancelActiveCapture();
     ns.cancelCompare();
     STATE.templateMode = null;
     removeAllListeners();

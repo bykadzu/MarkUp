@@ -205,13 +205,24 @@
     toolbar.querySelector('#markup-save').addEventListener('click', function () { window.__markupCapture?.savePNG(); });
     toolbar.querySelector('#markup-copy').addEventListener('click', function () { window.__markupCapture?.copyToClipboard(); });
     toolbar.querySelector('#markup-export-notes').addEventListener('click', function () { window.__markupCapture?.exportNotes(STATE.annotations); });
-    toolbar.querySelector('#markup-close').addEventListener('click', function () { ns.destroyOverlay(); });
+    toolbar.querySelector('#markup-close').addEventListener('click', function () {
+      ns.cancelActiveCapture?.();
+      ns.destroyOverlay();
+    });
 
     // Feature button handlers
     toolbar.querySelector('#markup-compare').addEventListener('click', ns.startCompare);
     toolbar.querySelector('#markup-share').addEventListener('click', ns.shareScreenshot);
     toolbar.querySelector('#markup-templates').addEventListener('click', ns.toggleTemplatePanel);
-    toolbar.querySelector('#markup-fullpage').addEventListener('click', function () { window.__markupCapture?.saveFullPagePNG(); });
+    toolbar.querySelector('#markup-fullpage').addEventListener('click', function () {
+      if (STATE.fullPageCaptureRunning) return;
+      STATE.fullPageCaptureRunning = true;
+      Promise.resolve().then(function () {
+        return window.__markupCapture?.saveFullPagePNG();
+      }).finally(function () {
+        STATE.fullPageCaptureRunning = false;
+      });
+    });
     toolbar.querySelector('#markup-pin-to-page').addEventListener('click', ns.pinAnnotationsToPage);
     toolbar.querySelector('#markup-clear-pins').addEventListener('click', ns.clearPinnedAnnotations);
 

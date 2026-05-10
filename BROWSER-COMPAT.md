@@ -12,7 +12,7 @@
 - [ ] Save as PNG (download + clipboard)
 - [ ] Copy to clipboard
 - [ ] Export notes as markdown
-- [ ] Full page screenshot (scroll-stitch)
+- [ ] Full page screenshot (native visible-tab capture + scroll-stitch)
 - [ ] Compare mode (before/after slider)
 - [ ] Share link (upload + clipboard fallback on cancel)
 - [ ] Templates: 5 built-in + custom creation
@@ -39,7 +39,7 @@ Firefox uses `browser.*` API namespace. The codebase includes `browser`/`chrome`
 **Known differences:**
 - Manifest V3 is partially supported in Firefox. May need a separate `manifest.json` for Firefox (V2 format with `background.scripts` instead of `service_worker`).
 - `browser.scripting.executeScript` requires Firefox 102+.
-- `browser.tabs.captureVisibleTab` works but returns PNG by default (we request JPEG).
+- `browser.tabs.captureVisibleTab` works, though format and quality options may differ by browser.
 - `backdrop-filter` for blur tool requires Firefox 103+.
 
 **Firefox-specific checks:**
@@ -56,7 +56,7 @@ Manifest declares `browser_specific_settings.safari.strict_min_version: "15.4"`.
 **Known differences:**
 - Requires Xcode and Safari Web Extension wrapper
 - `browser.*` API namespace used
-- `chrome.tabs.captureVisibleTab` may need `<all_urls>` permission
+- Native visible-tab capture may need `<all_urls>` permission in the Safari wrapper
 - Touch events on iPad should work (touchstart/move/end handlers exist)
 
 **Safari-specific checks:**
@@ -94,12 +94,14 @@ Manifest declares `browser_specific_settings.safari.strict_min_version: "15.4"`.
 ## Testing Sites
 
 Test on at least 3 different types of sites:
-1. **Static site** — e.g., a landing page or blog
-2. **Web app** — e.g., Gmail, GitHub, or a dashboard
-3. **Heavy JS site** — e.g., YouTube, Twitter/X
+1. **Local harness** - serve `test-pages/fullpage-capture.html` over localhost, for example `python3 -m http.server 8080`
+2. **Static site** - e.g., a landing page or blog
+3. **Web app** - e.g., Gmail, GitHub, or a dashboard
+4. **Heavy JS site** - e.g., YouTube, Twitter/X
 
 Verify on each:
 - Overlay doesn't break page layout
 - Annotations render correctly over dynamic content
 - Close/destroy doesn't leave artifacts
 - z-index doesn't conflict with site modals/dropdowns
+- Full-page output includes the bottom sentinel and has no obvious repeated or missing bands
