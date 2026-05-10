@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MarkUp Full Page Capture Harness</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172026;
+      --muted: #59646d;
+      --paper: #f7f4ec;
+      --panel: #ffffff;
+      --rule: #d9d1c3;
+      --red: #c2410c;
+      --blue: #2563eb;
+      --green: #15803d;
+      --yellow: #facc15;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        linear-gradient(90deg, rgba(37, 99, 235, 0.12) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(194, 65, 12, 0.12) 1px, transparent 1px),
+        var(--paper);
+      background-size: 80px 80px;
+    }
+
+    .sticky-header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 64px;
+      padding: 12px 24px;
+      border-bottom: 3px solid var(--ink);
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(10px);
+    }
+
+    .sticky-header strong {
+      font-size: 18px;
+    }
+
+    .header-marks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .header-marks span {
+      padding: 4px 8px;
+      border: 1px solid var(--rule);
+      border-radius: 999px;
+      background: #fff;
+    }
+
+    main {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 32px 20px 96px;
+    }
+
+    .hero,
+    .capture-section,
+    .sentinel {
+      border: 2px solid var(--ink);
+      background: var(--panel);
+      box-shadow: 8px 8px 0 rgba(23, 32, 38, 0.18);
+    }
+
+    .hero {
+      min-height: 72vh;
+      display: grid;
+      align-content: center;
+      gap: 24px;
+      padding: 48px;
+    }
+
+    h1,
+    h2,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      max-width: 760px;
+      font-size: clamp(40px, 7vw, 92px);
+      line-height: 0.95;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      font-size: 28px;
+      line-height: 1.1;
+    }
+
+    .hero p {
+      max-width: 680px;
+      color: var(--muted);
+      font-size: 19px;
+    }
+
+    .marker-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .marker {
+      min-height: 84px;
+      display: grid;
+      place-items: center;
+      border: 2px dashed var(--ink);
+      color: #fff;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .marker:nth-child(1) { background: var(--red); }
+    .marker:nth-child(2) { background: var(--blue); }
+    .marker:nth-child(3) { background: var(--green); }
+    .marker:nth-child(4) { background: #7c3aed; }
+
+    .ruler {
+      position: absolute;
+      left: max(8px, calc((100vw - 1120px) / 2));
+      top: 90px;
+      bottom: 120px;
+      width: 26px;
+      pointer-events: none;
+    }
+
+    .tick {
+      position: absolute;
+      left: 0;
+      width: 26px;
+      height: 2px;
+      background: var(--ink);
+    }
+
+    .tick span {
+      position: absolute;
+      left: 34px;
+      top: -10px;
+      color: var(--red);
+      font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: nowrap;
+    }
+
+    .capture-section {
+      position: relative;
+      min-height: 620px;
+      margin-top: 80px;
+      padding: 36px;
+      overflow: hidden;
+    }
+
+    .capture-section::before {
+      content: attr(data-band);
+      position: absolute;
+      right: 18px;
+      top: 16px;
+      color: rgba(23, 32, 38, 0.14);
+      font: 900 88px/1 system-ui, sans-serif;
+    }
+
+    .section-grid {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 28px;
+      align-items: start;
+    }
+
+    .stripe {
+      height: 180px;
+      margin-top: 28px;
+      border: 2px solid var(--ink);
+      background:
+        repeating-linear-gradient(
+          135deg,
+          rgba(250, 204, 21, 0.85) 0 18px,
+          rgba(37, 99, 235, 0.85) 18px 36px,
+          rgba(255, 255, 255, 0.95) 36px 54px
+        );
+    }
+
+    .lazy-box {
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--rule);
+      background: #f8fafc;
+      color: var(--muted);
+      text-align: center;
+      font-weight: 700;
+    }
+
+    .lazy-box.loaded {
+      border-color: var(--green);
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 18% 24%, rgba(21, 128, 61, 0.34), transparent 26%),
+        radial-gradient(circle at 80% 58%, rgba(37, 99, 235, 0.32), transparent 28%),
+        linear-gradient(135deg, #ecfccb, #dbeafe);
+    }
+
+    .lazy-photo {
+      width: 100%;
+      min-height: 220px;
+      display: block;
+      border: 2px solid var(--ink);
+      object-fit: cover;
+      background: #e5e7eb;
+    }
+
+    .floating-widget {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 30;
+      width: min(240px, calc(100vw - 44px));
+      padding: 14px;
+      border: 2px solid var(--ink);
+      background: #fff7ed;
+      box-shadow: 5px 5px 0 rgba(194, 65, 12, 0.28);
+      font-size: 14px;
+    }
+
+    .floating-widget strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .sentinel {
+      margin-top: 80px;
+      padding: 48px;
+      text-align: center;
+      background:
+        linear-gradient(90deg, var(--red) 0 16.66%, var(--yellow) 16.66% 33.33%, var(--green) 33.33% 50%, var(--blue) 50% 66.66%, #7c3aed 66.66% 83.33%, var(--ink) 83.33%);
+      color: #fff;
+    }
+
+    .sentinel h2 {
+      font-size: clamp(36px, 8vw, 76px);
+      text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+    }
+
+    @media (max-width: 760px) {
+      .sticky-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .hero,
+      .capture-section,
+      .sentinel {
+        padding: 24px;
+      }
+
+      .marker-row,
+      .section-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .ruler {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="sticky-header">
+    <strong>MarkUp capture reliability harness</strong>
+    <div class="header-marks" aria-label="Page traits">
+      <span>sticky header</span>
+      <span>fixed widget</span>
+      <span>lazy content</span>
+      <span>bottom sentinel</span>
+    </div>
+  </header>
+
+  <div class="ruler" aria-hidden="true">
+    <div class="tick" style="top: 0;"><span>0 px</span></div>
+    <div class="tick" style="top: 18%;"><span>18%</span></div>
+    <div class="tick" style="top: 36%;"><span>36%</span></div>
+    <div class="tick" style="top: 54%;"><span>54%</span></div>
+    <div class="tick" style="top: 72%;"><span>72%</span></div>
+    <div class="tick" style="top: 90%;"><span>90%</span></div>
+  </div>
+
+  <aside class="floating-widget">
+    <strong>Fixed viewport widget</strong>
+    This should appear repeatedly in visible captures but should be easy to spot during full-page stitching checks.
+  </aside>
+
+  <main>
+    <section class="hero">
+      <h1>Full-page capture seam check</h1>
+      <p>
+        Use this local page to exercise native visible-tab capture and scroll stitching.
+        The colored blocks, ruler ticks, lazy sections, sticky header, and final sentinel
+        make missing bands or duplicated regions obvious.
+      </p>
+      <div class="marker-row" aria-label="Top visual markers">
+        <div class="marker">top A</div>
+        <div class="marker">top B</div>
+        <div class="marker">top C</div>
+        <div class="marker">top D</div>
+      </div>
+    </section>
+
+    <section class="capture-section" data-band="01">
+      <div class="section-grid">
+        <div>
+          <h2>Band 01: oversized stripe</h2>
+          <p>Diagonal stripes expose vertical jumps, duplicated rows, and edge clipping.</p>
+          <div class="stripe" aria-hidden="true"></div>
+        </div>
+        <div class="lazy-box" data-lazy="Loaded lazy panel 01">Waiting for lazy panel 01</div>
+      </div>
+    </section>
+
+    <section class="capture-section" data-band="02">
+      <div class="section-grid">
+        <div>
+          <h2>Band 02: delayed image</h2>
+          <p>The image below is assigned only after it nears the viewport.</p>
+          <img class="lazy-photo" alt="Lazy generated test pattern 02" data-src="02">
+        </div>
+        <div class="marker-row">
+          <div class="marker">2A</div>
+          <div class="marker">2B</div>
+          <div class="marker">2C</div>
+          <div class="marker">2D</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="capture-section" data-band="03">
+      <div class="section-grid">
+        <div>
+          <h2>Band 03: lazy text block</h2>
+          <p data-lazy-text>Placeholder text before IntersectionObserver fills this paragraph.</p>
+          <div class="stripe" aria-hidden="true"></div>
+        </div>
+        <div class="lazy-box" data-lazy="Loaded lazy panel 03">Waiting for lazy panel 03</div>
+      </div>
+    </section>
+
+    <section class="capture-section" data-band="04">
+      <div class="section-grid">
+        <div>
+          <h2>Band 04: second delayed image</h2>
+          <p>Scroll slowly once before capture if you want every lazy asset loaded.</p>
+          <img class="lazy-photo" alt="Lazy generated test pattern 04" data-src="04">
+        </div>
+        <div class="lazy-box" data-lazy="Loaded lazy panel 04">Waiting for lazy panel 04</div>
+      </div>
+    </section>
+
+    <section class="capture-section" data-band="05">
+      <div class="section-grid">
+        <div>
+          <h2>Band 05: near-bottom alignment</h2>
+          <p>The next block is the bottom sentinel. It should be present in a complete full-page capture.</p>
+          <div class="stripe" aria-hidden="true"></div>
+        </div>
+        <div class="marker-row">
+          <div class="marker">5A</div>
+          <div class="marker">5B</div>
+          <div class="marker">5C</div>
+          <div class="marker">5D</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sentinel" id="bottom-sentinel">
+      <h2>Bottom sentinel reached</h2>
+      <p>If this band is missing, clipped, or duplicated, full-page capture needs another look.</p>
+    </section>
+  </main>
+
+  <script>
+    function svgPattern(label, a, b, c) {
+      var svg = [
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">',
+        '<rect width="640" height="360" fill="' + a + '"/>',
+        '<path d="M0 260 L640 88 L640 360 L0 360 Z" fill="' + b + '" opacity="0.9"/>',
+        '<circle cx="500" cy="92" r="72" fill="' + c + '" opacity="0.82"/>',
+        '<g fill="#172026" font-family="system-ui,sans-serif" font-weight="900">',
+        '<text x="36" y="74" font-size="42">Lazy image ' + label + '</text>',
+        '<text x="36" y="318" font-size="24">Generated locally for capture testing</text>',
+        '</g>',
+        '</svg>'
+      ].join('');
+      return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }
+
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (!entry.isIntersecting) return;
+
+        if (entry.target.matches('[data-lazy]')) {
+          entry.target.textContent = entry.target.getAttribute('data-lazy');
+          entry.target.classList.add('loaded');
+        }
+
+        if (entry.target.matches('[data-lazy-text]')) {
+          entry.target.textContent = 'Lazy text loaded near the viewport. This line should appear in the captured output after a normal scroll-through.';
+        }
+
+        if (entry.target.matches('img[data-src]')) {
+          var label = entry.target.getAttribute('data-src');
+          var palette = label === '02'
+            ? ['#bfdbfe', '#fef3c7', '#fb7185']
+            : ['#dcfce7', '#ede9fe', '#facc15'];
+          entry.target.src = svgPattern(label, palette[0], palette[1], palette[2]);
+          entry.target.removeAttribute('data-src');
+        }
+
+        observer.unobserve(entry.target);
+      });
+    }, { rootMargin: '160px 0px' });
+
+    document.querySelectorAll('[data-lazy], [data-lazy-text], img[data-src]').forEach(function(el) {
+      observer.observe(el);
+    });
+  </script>
+</body>
+</html>

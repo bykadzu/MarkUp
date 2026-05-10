@@ -42,6 +42,7 @@ Annotate directly on any live webpage. No screenshot-first workflow. Drop number
 
 - **Save (green arrow)**: Downloads PNG + copies file path to clipboard (for Claude Code workflow)
 - **Copy**: Copies annotated screenshot to clipboard
+- **Full page**: Captures the page with the browser's native visible-tab API, then scrolls and stitches viewports for a full-page PNG
 - **Notes export**: All text notes + pins as markdown file
 
 ## Keyboard shortcuts
@@ -73,7 +74,7 @@ popup.html/css/js   Extension popup
 content.js          Annotation engine (canvas + SVG + HTML)
 capture.js          Screenshot capture + clipboard + export
 styles.css          Toolbar + annotation styles (glass morphism dark)
-lib/html2canvas     Bundled — no CDN, works offline
+test-pages/         Local manual capture harnesses
 icons/              16/48/128px
 COMPARISON.md       MarkUp vs Windows Snipping Tool
 CHANGELOG.md        Version history
@@ -83,8 +84,12 @@ CHANGELOG.md        Version history
 
 - Manifest V3 — chrome.scripting API, Safari 15.4+ compatible
 - 3-layer composite: Canvas (freehand) + SVG (shapes) + HTML (text/pins)
-- html2canvas for page capture, handles oklch/oklab CSS
+- Native browser capture via `tabs.captureVisibleTab`; full-page export uses scroll-and-stitch
 - Zero external dependencies at runtime
+
+## Manual capture test page
+
+Serve `test-pages/fullpage-capture.html` from localhost, then start MarkUp and run visible-page and full-page export checks. For example: `python3 -m http.server 8080`, then open `http://localhost:8080/test-pages/fullpage-capture.html`. Opening the file directly can work only if the browser allows the extension to access `file://` URLs. The page includes a sticky header, fixed floating widget, lazy-loaded sections/images, colored markers, and a bottom sentinel to make stitching gaps easy to spot.
 
 ---
 

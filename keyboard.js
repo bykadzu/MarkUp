@@ -11,6 +11,12 @@
     if (!STATE) return;
 
     if (e.key === 'Escape') {
+      if (STATE.fullPageCaptureRunning) {
+        if (ns.cancelActiveCapture?.()) {
+          window.__markupCapture?.showToast('Full page capture cancelled.', 2000);
+        }
+        return;
+      }
       if (STATE.compareStep) { ns.exitCompare(); return; }
       if (STATE.templateMode) {
         STATE.templateMode = null;
